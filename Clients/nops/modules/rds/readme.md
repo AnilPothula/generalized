@@ -13,16 +13,17 @@ These types of resources are supported:
 ```hcl
 module "rds" {
     source  = "./modules/rds"
-    rds_master_username         ="parveendev"
-    database_name               ="parveendev"
+    rds_master_username         = "parveendev"
+    rds_master_userpassword     = "YourPwdShouldBeLongAndSecure"
+    database_name               = "parveendev"
     identifier                  = "dev-rd-postgres"
     engine                      = "postgres"
     engine_version              = "9.6.11"
     instance_class              = "db.t2.micro"
+    rds_allocated_storage       = 15
     multi_az                    = false
     subnet_group_description    = "Subnet Group Description"
     subnets                     = ["subnet-XXXXXXXXXXXX", "subnet-XXXXXXXXXXXX"]
-    ssm_db_password_key_description ="key description"
     tags = {
       dev="Parveen"
       email="parveen@nclouds.com"

@@ -28,6 +28,12 @@ variable "rds_master_username" {
   type        = string
 }
 
+variable "rds_master_userpassword" {
+  description = "DB Master uer password"
+  default     = ""
+  type        = string
+}
+
 variable "rds_allocated_storage" {
   description = "Allocated storage"
   default     = 10
@@ -69,13 +75,6 @@ variable "tags" {
   default     = {}
   type        = map
 }
-
-variable "ssm_db_password_key_description" {
-  description = "The parameter description"
-  default     = ""
-  type        = string
-}
-
 
 variable "subnet_group_description" {
   description = "Subnet Group Description"
