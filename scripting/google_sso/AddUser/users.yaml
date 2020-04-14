@@ -1,0 +1,21 @@
+idp:
+  TRAINING: arn:aws:iam::485837490462:saml-provider/google-idp
+  NCLOUDS: arn:aws:iam::695292474035:saml-provider/google-idp
+roles:
+  NCLOUDS-ADMIN: "arn:aws:iam::695292474035:role/google-idp-admin"
+  NCLOUDS-KMS: "arn:aws:iam::695292474035:role/google-idp-kms-admin"
+  NCLOUDS-READ-ONLY: "arn:aws:iam::695292474035:role/google-idp-read-only"
+  NCLOUDS-S3: "arn:aws:iam::695292474035:role/google-idp-s3"
+  TRAINING-ADMIN: "arn:aws:iam::485837490462:role/google-idp-admin"
+  TRAINING-KMS: "arn:aws:iam::485837490462:role/google-idp-kms-admin"
+  TRAINING-READ-ONLY: "arn:aws:iam::485837490462:role/google-idp-read-only"
+  TRAINING-S3: "arn:aws:iam::485837490462:role/google-idp-s3"
+users:
+  abel@ncloudsdemo.page:
+    TRAINING:
+      roles:
+        - TRAINING-ADMIN
+    NCLOUDS:
+      roles:
+        - NCLOUDS-READ-ONLY
+        - NCLOUDS-S3

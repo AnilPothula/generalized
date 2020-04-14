@@ -1,0 +1,24 @@
+idp:
+  [IDP_Name1]: "[aws_idp_arn]"
+  [IDP_Name2]: "[aws_idp_arn]"
+  [IDP_Name3]: "[aws_idp_arn]"
+roles:
+  [ROLE_Name1]: "[aws_idp_arn]"
+  [ROLE_Name2]: "[aws_idp_arn]"
+  [ROLE_Name3]: "[aws_idp_arn]"
+  [ROLE_Name4]: "[aws_idp_arn]"
+  [ROLE_Name5]: "[aws_idp_arn]"
+  [ROLE_Name6]: "[aws_idp_arn]"
+users:
+  [USER_EMAIL1]:
+    [IDP_Name1]:
+      roles:
+        - [ROLE_Name1]
+        - [ROLE_Name2]
+    [IDP_Name2]:
+      roles:
+        - [ROLE_Name3]
+  [USER_EMAIL2]:
+    [IDP_Name3]:
+      roles:
+        - [ROLE_Name5]
