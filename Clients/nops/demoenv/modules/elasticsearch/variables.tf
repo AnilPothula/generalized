@@ -18,7 +18,7 @@ variable "identifier" {
 
 variable "ebs_enabled" {
     description = "Whether EBS volumes are attached to data nodes in the domain."
-    default     = false
+    default     = true
     type        = bool
 }
 
