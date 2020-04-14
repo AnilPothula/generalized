@@ -1,31 +1,19 @@
 variable "identifier" {
     description = "A name identifier for the ElasticSearch domain."
-    default     = ""
+    default     = "domain-name"
     type        = string
 }
 
-variable "security_group_ids" {
-    description = "List of security group ids."
-    default     = ["sg-xxxxxxxxxxxxx"]
-    type        = list(string)
-}
-
-# variable "vpc_id" {
-#     description = "A name identifier for the ElasticSearch domain."
-#     default     = ""
-#     type        = string
+# variable "security_group_ids" {
+#     description = "List of security group ids."
+#     default     = ["sg-xxxxxxxxxxxxx"]
+#     type        = list(string)
 # }
 
-variable "subnets_ids" {
-    description = "List of all the subnets"
-    default     = ["subnet-xxxxxxxxxxxxx"]
-    type        = list(string)
-}
-
-# variable "cidr" {
-#     description = "Range of IPv4 addresses for your VPC in CIDR block format."
-#     default     = ""
-#     type        = string
+# variable "subnets_ids" {
+#     description = "List of all the subnets"
+#     default     = ["subnet-xxxxxxxxxxxxx"]
+#     type        = list(string)
 # }
 
 variable "ebs_enabled" {
@@ -36,13 +24,26 @@ variable "ebs_enabled" {
 
 variable "volume_size" {
     description = "The size of EBS volumes attached to data nodes (in GB)."
-    default     = 5
+    default     = 20
     type        = number
+}
+
+variable "iops" {
+    description = "The baseline input/output (I/O) performance of EBS volumes attached to data nodes"
+    default     = 0
+    type        = number
+}
+
+
+variable "zone_awareness_enabled" {
+    description = "Configuration block containing zone awareness settings. Documented below."
+    default     = false
+    type        = bool
 }
 
 variable "instance_type" {
     description = "Instance type of data nodes in the cluster."
-    default     = "t2.small.elasticsearch"
+    default     = "m3.medium.elasticsearch"
     type        = string
 }
 
@@ -54,14 +55,33 @@ variable "volume_type" {
 
 variable "instance_count" {
     description = "The number of data nodes (instances) to use in the Amazon ES domain"
-    default     = "2"
+    default     = 2
     type        = number
 }
+
+variable "dedicated_master_enabled" {
+    description = "Indicates whether dedicated master nodes are enabled for the cluster."
+    default     = true
+    type        = bool
+}
+
 
 variable "elasticsearch_version" {
     description = "The version of Elasticsearch to use."
     default     = "2.3"
     type        = string
+}
+
+variable "dedicated_master_type" {
+    description = "Instance type of the dedicated master nodes in the cluster."
+    default     = "m3.medium.elasticsearch"
+    type        = string
+}
+
+variable "dedicated_master_count" {
+    description = "Number of dedicated master nodes in the cluster."
+    default     = 3
+    type        = number
 }
 
 variable "automated_snapshot_start_hour" {

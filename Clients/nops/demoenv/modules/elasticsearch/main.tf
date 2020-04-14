@@ -27,21 +27,26 @@ POLICY
       ebs_enabled = var.ebs_enabled
       volume_type = var.volume_type
       volume_size = var.volume_size
+      iops        = var.iops
     }
 
     cluster_config {
-      instance_count = var.instance_count
-      instance_type  = var.instance_type
+      dedicated_master_enabled = var.dedicated_master_enabled
+      dedicated_master_count   = var.dedicated_master_count
+      zone_awareness_enabled   = var.zone_awareness_enabled
+      dedicated_master_type    = var.dedicated_master_type
+      instance_count           = var.instance_count
+      instance_type            = var.instance_type
     }
 
     snapshot_options {
       automated_snapshot_start_hour = var.automated_snapshot_start_hour
     }
 
-    vpc_options {
-      security_group_ids = var.security_group_ids
-      subnet_ids         = var.subnets_ids
-    }
+    # vpc_options {
+    #   security_group_ids = var.security_group_ids
+    #   subnet_ids         = var.subnets_ids
+    # }
 
     tags  = local.tags
 }
