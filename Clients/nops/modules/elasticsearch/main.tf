@@ -23,6 +23,10 @@ resource "aws_elasticsearch_domain" "es_domain" {
 }
 POLICY
 
+    advanced_options = {
+      "rest.action.multi.allow_explicit_index" = true
+    }
+
     ebs_options {
       ebs_enabled = var.ebs_enabled
       volume_type = var.volume_type
