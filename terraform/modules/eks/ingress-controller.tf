@@ -1,7 +1,7 @@
 # @read https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/setup/
 resource "aws_iam_role" "ingress-controller-role" {
-  name       = "terraform_${var.environment}_${var.cluster_name}_eks_ingress_controller_role"
-  depends_on = ["aws_iam_role.eks_worker_role"]
+  name               = "terraform_${var.environment}_${var.cluster_name}_eks_ingress_controller_role"
+  depends_on         = [aws_iam_role.eks_worker_role]
   assume_role_policy = <<POLICY
 {
   "Version": "2012-10-17",
@@ -24,15 +24,17 @@ resource "aws_iam_role" "ingress-controller-role" {
   ]
 }
 POLICY
+
 }
+
 #
 # Set alb ingress controller necessary policies
 #
 resource "aws_iam_role_policy" "ingress-controller-policy" {
-  depends_on = ["aws_iam_role.ingress-controller-role"]
+  depends_on = [aws_iam_role.ingress-controller-role]
   name       = "terraform_${var.environment}_${var.cluster_name}_eks_ingress_controller_policy"
-  role       = "${aws_iam_role.ingress-controller-role.name}"
-  policy = <<EOF
+  role       = aws_iam_role.ingress-controller-role.name
+  policy     = <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -152,23 +154,23 @@ resource "aws_iam_role_policy" "ingress-controller-policy" {
   ]
 }
 EOF
-}
 
+}
 
 data "template_file" "alb-ingress" {
-  template = "${file("${path.module}/templates/alb-ingress-controller.yaml.tpl")}"
-    vars {
-      region       = "${data.aws_region.current.name}"
-      vpc_id       = "${var.vpc_id}"
-      cluster_name = "${aws_eks_cluster.k8s.name}"
-      ingress_role = "${aws_iam_role.ingress-controller-role.arn}"
+  template = file("${path.module}/templates/alb-ingress-controller.yaml.tpl")
+  vars = {
+    region       = data.aws_region.current.name
+    vpc_id       = var.vpc_id
+    cluster_name = aws_eks_cluster.k8s.name
+    ingress_role = aws_iam_role.ingress-controller-role.arn
   }
 }
-resource "local_file" "alb-ingress" {
-  count = "${var.render_files ? 1 : 0}"
-  content  = "${data.template_file.alb-ingress.rendered}"
-  filename = "dist/alb-ingress-controller_${aws_eks_cluster.k8s.name}.yaml"
-  depends_on = ["null_resource.clean_dist"]
-}
 
+resource "local_file" "alb-ingress" {
+  count      = var.render_files ? 1 : 0
+  content    = data.template_file.alb-ingress.rendered
+  filename   = "dist/alb-ingress-controller_${aws_eks_cluster.k8s.name}.yaml"
+  depends_on = [null_resource.clean_dist]
+}
 
