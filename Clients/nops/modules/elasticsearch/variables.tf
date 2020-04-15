@@ -4,17 +4,6 @@ variable "identifier" {
     type        = string
 }
 
-# variable "security_group_ids" {
-#     description = "List of security group ids."
-#     default     = ["sg-xxxxxxxxxxxxx"]
-#     type        = list(string)
-# }
-
-# variable "subnets_ids" {
-#     description = "List of all the subnets"
-#     default     = ["subnet-xxxxxxxxxxxxx"]
-#     type        = list(string)
-# }
 
 variable "ebs_enabled" {
     description = "Whether EBS volumes are attached to data nodes in the domain."
@@ -89,10 +78,6 @@ variable "automated_snapshot_start_hour" {
     default     = 0
     type        = number
 
-    # variable_validation {
-    #     condition     = var.ss_hour > 0 && var.ss_hour < 24
-    #     error_message = "Snapshot hour must be between 0 and 23 hour."
-    # }
 }
 
 variable "tags" {

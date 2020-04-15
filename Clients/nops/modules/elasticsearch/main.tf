@@ -47,10 +47,7 @@ POLICY
       automated_snapshot_start_hour = var.automated_snapshot_start_hour
     }
 
-    # vpc_options {
-    #   security_group_ids = var.security_group_ids
-    #   subnet_ids         = var.subnets_ids
-    # }
+
 
     tags  = local.tags
 }
