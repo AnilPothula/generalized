@@ -14,7 +14,7 @@ These types of resources are supported:
 module "rds" {
     source  = "./modules/rds"
     rds_master_username         = "parveendev"
-    rds_master_userpassword     = "YourPwdShouldBeLongAndSecure"
+    rds_password_ssm_path       = "path/of/ssm/variable"
     database_name               = "parveendev"
     identifier                  = "dev-rd-postgres"
     engine                      = "postgres"
@@ -31,4 +31,13 @@ module "rds" {
       Team =  "Layer2",
     }
 }
+
+output "rds_details" {
+  value = "${module.rds.rds}"
+}
+
+output "aws_db_id" {
+  value = "${module.rds.aws_db_id}"
+}
+
 ```

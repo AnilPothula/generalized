@@ -13,6 +13,9 @@ resource "aws_db_subnet_group" "main" {
     tags        = local.tags
 }
 
+data "aws_ssm_parameter" "rdspassword" {
+  name = var.rds_password_ssm_path
+}
 
 resource "aws_db_instance" "default" {
     identifier                  = "${var.identifier}-${terraform.workspace}"
@@ -23,7 +26,7 @@ resource "aws_db_instance" "default" {
     db_subnet_group_name        = aws_db_subnet_group.main.id
     name                        = var.database_name
     username                    = var.rds_master_username
-    password                    = var.rds_master_userpassword
+    password                    = "${data.aws_ssm_parameter.rdspassword.value}"
     multi_az                    = var.multi_az
     vpc_security_group_ids      = [var.security_group_id]
     tags                        = local.tags
