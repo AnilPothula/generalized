@@ -28,8 +28,8 @@ variable "rds_master_username" {
   type        = string
 }
 
-variable "rds_master_userpassword" {
-  description = "DB Master uer password"
+variable "rds_password_ssm_path" {
+  description = "SSM Path where rds password stored"
   default     = ""
   type        = string
 }
