@@ -21,18 +21,18 @@ Parameters:
 
   PublicSubnetsCidr:
     Type: List<String>
-    Default: 172.16.10.0/24,172.16.11.0/24
+    Default: 172.16.0.0/20,172.16.16.0/20,172.16.32.0/20
     Description: IPV4 CIDR blocks for the public subnets
-
-  DataSubnetsCidr:
-    Type: List<String>
-    Default: 172.16.10.0/24,172.16.11.0/24
-    Description: IPV4 CIDR blocks for the data subnets
 
   ApplicationSubnetsCidr:
     Type: List<String>
-    Default: 172.16.10.0/24,172.16.11.0/24
+    Default: 172.16.48.0/20,172.16.64.0/20,172.16.80.0/20
     Description: IPV4 CIDR blocks for the application subnets
+
+  DataSubnetsCidr:
+    Type: List<String>
+    Default: 172.16.96.0/20,172.16.112.0/20,172.16.138.0/20
+    Description: IPV4 CIDR blocks for the data subnets
 
   SetNatGateway:
     Description: Whether to deploy a Nat Gateway or not
