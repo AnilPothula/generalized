@@ -1,0 +1,122 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  ECS Cluster
+Parameters:
+
+  VPCCIDR:
+    Type: String
+    Default: 172.16.0.0/16
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the VPC
+
+  PublicSubnet1CIDR:
+    Type: String
+    Default: 172.16.0.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Public Subnet 1
+
+  PublicSubnet2CIDR:
+    Type: String
+    Default: 172.16.16.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Public Subnet 2
+
+  PublicSubnet3CIDR:
+    Type: String
+    Default: 172.16.32.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Public Subnet 3
+
+  ApplicationSubnet1CIDR:
+    Type: String
+    Default: 172.16.48.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Application Subnet 1
+
+  ApplicationSubnet2CIDR:
+    Type: String
+    Default: 172.16.64.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Application Subnet 2
+
+  ApplicationSubnet3CIDR:
+    Type: String
+    Default: 172.16.80.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Application Subnet 3
+
+  DataSubnet1CIDR:
+    Type: String
+    Default: 172.16.96.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Data Subnet 1
+
+  DataSubnet2CIDR:
+    Type: String
+    Default: 172.16.112.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Data Subnet 2
+
+  DataSubnet3CIDR:
+    Type: String
+    Default: 172.16.138.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Data Subnet 3
+
+  S3BucketName:
+    Type: String
+    Default: l2-demo
+    AllowedPattern: "^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$"
+    ConstraintDescription: "Quick Start bucket name can include numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen (-)."
+    Description: "S3 bucket name for the Quick Start assets. Quick Start bucket name can include numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen (-)."
+
+  S3KeyPrefix:
+    Type: String
+    Default: L2-Demo
+    AllowedPattern: "^[0-9a-zA-Z-/]*$"
+    ConstraintDescription: "Quick Start key prefix can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slash (/)."
+    Description: "S3 key prefix for the Quick Start assets. Quick Start key prefix can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slash (/). It cannot start or end with a hyphen (-)."
+
+  StackName:
+    Type: String
+    Default: L2-Demo
+    Description: This will be used to name the resources
+    
+  Environment:
+    Type: String
+    Default: Dev
+    AllowedValues: [Prod, Stage, Dev]
+
+Resources: 
+
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.amazonaws.com/${S3KeyPrefix}/${Environment}/vpc.yml"
+      Parameters:
+        VPCCIDR: !Ref VPCCIDR
+        PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
+        PublicSubnet2CIDR: !Ref PublicSubnet2CIDR
+        PublicSubnet3CIDR: !Ref PublicSubnet3CIDR
+        ApplicationSubnet1CIDR: !Ref ApplicationSubnet1CIDR
+        ApplicationSubnet2CIDR: !Ref ApplicationSubnet2CIDR
+        ApplicationSubnet3CIDR: !Ref ApplicationSubnet3CIDR
+        DataSubnet1CIDR: !Ref DataSubnet1CIDR
+        DataSubnet2CIDR: !Ref DataSubnet2CIDR
+        DataSubnet3CIDR: !Ref DataSubnet3CIDR
+        StackName: !Ref StackName
+        Environment: !Ref Environment
+      Tags:
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
