@@ -1,0 +1,428 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Resources for a VPC and routing
+  It includes a VPC with three public subnets and six private subnets and a NAT gateway for internet access on the private
+  subnets
+Parameters:
+
+  VPCCIDR:
+    Type: String
+    Default: 172.16.0.0/16
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the VPC
+
+  PublicSubnet1CIDR:
+    Type: String
+    Default: 172.16.0.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Public Subnet 1
+
+  PublicSubnet2CIDR:
+    Type: String
+    Default: 172.16.16.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Public Subnet 2
+
+  PublicSubnet3CIDR:
+    Type: String
+    Default: 172.16.32.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Public Subnet 3
+
+  ApplicationSubnet1CIDR:
+    Type: String
+    Default: 172.16.48.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Application Subnet 1
+
+  ApplicationSubnet2CIDR:
+    Type: String
+    Default: 172.16.64.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Application Subnet 2
+
+  ApplicationSubnet3CIDR:
+    Type: String
+    Default: 172.16.80.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Application Subnet 3
+
+  DataSubnet1CIDR:
+    Type: String
+    Default: 172.16.96.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Data Subnet 1
+
+  DataSubnet2CIDR:
+    Type: String
+    Default: 172.16.112.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Data Subnet 2
+
+  DataSubnet3CIDR:
+    Type: String
+    Default: 172.16.138.0/20
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Description: CIDR Block for the Data Subnet 3
+
+  # SetNatGateway:
+  #   Description: Set to true to deploy the Nat Gateway
+  #   Type: String
+  #   Default: true
+  #   AllowedValues:
+  #     - true
+  #     - false
+  #   ConstraintDescription: Value must be true or false
+
+  Environment:
+    Type: String
+    Default: Dev
+    AllowedValues: [Prod, Stage, Dev]
+
+  StackName:
+    Type: String
+    Description: Stack name to prefix some resource names
+
+# Conditions:
+
+#   CreateNatGateway: !Equals [ !Ref SetNatGateway, true ]
+
+Resources:
+
+  ############# Network #############
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-VPC
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-PublicSubnet1
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock:  !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-PublicSubnet2
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock:  !Ref PublicSubnet3CIDR
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 2, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-PublicSubnet3
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  ApplicationSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock:  !Ref ApplicationSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-ApplicationSubnet1
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  ApplicationSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref ApplicationSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-ApplicationSubnet2
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  ApplicationSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref ApplicationSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 2, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-ApplicationSubnet3
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  DataSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock:  !Ref DataSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-DataSubnet1
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  DataSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref DataSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-DataSubnet2
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  DataSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref DataSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 2, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-DataSubnet3
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+  ############# Routing #############
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-IGW
+    DependsOn: VPC
+
+  IGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+    DependsOn: IGW
+
+  PublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-PublicRT
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  PrivateRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-PrivateRT
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn: VPC
+
+  RouteToIGW:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref PublicRT
+      GatewayId: !Ref IGW
+    DependsOn:
+      - PublicRT
+      - IGWAttach
+
+  PublicSubnet1RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnet1
+    DependsOn:
+      - PublicRT
+      - PublicSubnet1
+
+  PublicSubnet2RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnet2
+    DependsOn:
+      - PublicRT
+      - PublicSubnet2
+
+  PublicSubnet3RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnet3
+    DependsOn:
+      - PublicRT
+      - PublicSubnet3
+
+  ApplicationSubnet1RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref ApplicationSubnet1
+    DependsOn:
+      - PrivateRT
+      - ApplicationSubnet1
+
+  ApplicationSubnet2RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref ApplicationSubnet2
+    DependsOn:
+      - PrivateRT
+      - ApplicationSubnet2
+
+  ApplicationSubnet3RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref ApplicationSubnet3
+    DependsOn:
+      - PrivateRT
+      - ApplicationSubnet3
+
+  DataSubnet1RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref DataSubnet1
+    DependsOn:
+      - PrivateRT
+      - DataSubnet1
+
+  DataSubnet2RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref DataSubnet2
+    DependsOn:
+      - PrivateRT
+      - DataSubnet2
+
+  DataSubnet3RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref DataSubnet3
+    DependsOn:
+      - PrivateRT
+      - DataSubnet3
+
+  ########## NAT Resources ##########
+
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    # Condition: CreateNatGateway
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    # Condition: CreateNatGateway
+    Properties: 
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags: 
+        - Key: Name
+          Value: !Sub ${StackName}-NAT
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+    DependsOn:
+      - IGWAttach
+      - NatGatewayEIP
+
+  RouteToNAT:
+    Type: AWS::EC2::Route
+    # Condition: CreateNatGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref PrivateRT
+      NatGatewayId: !Ref NatGateway
+    DependsOn:
+      - PrivateRT
+      - NatGateway
+
+Outputs:
+
+  VpcId:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${StackName}-${Environment}:VpcId
+
+  PublicSubnetsIds:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3 ]]
+    Export:
+      Name: !Sub ${StackName}-${Environment}:PublicSubnetIds
+
+  ApplicationSubnetsIds:
+    Description: A list of the application subnets
+    Value: !Join [ ",", [ !Ref ApplicationSubnet1, !Ref ApplicationSubnet2, !Ref ApplicationSubnet3 ]]
+    Export:
+      Name: !Sub ${StackName}-${Environment}:ApplicationSubnetIds
+
+  DataSubnetsIds:
+    Description: A list of the data subnets
+    Value: !Join [ ",", [ !Ref DataSubnet1, !Ref DataSubnet2, !Ref DataSubnet3 ]]
+    Export:
+      Name: !Sub ${StackName}-${Environment}:DataSubnetIds
