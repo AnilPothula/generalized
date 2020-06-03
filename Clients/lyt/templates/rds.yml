@@ -1,0 +1,243 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  RDS Database template, this template allows the creation
+  of a fresh RDS database or restore it from a snapshot. It uses
+  Secrets Manager to manage the credentials
+Parameters:
+
+  Identifier:
+    Type: String
+    Description: A name identifier for the RDS instance
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to host the RDS instance
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Ids to host the RDS instance
+
+  SourceSecurityGroupIds:
+    Type: List<String>
+    Default: ''
+    Description: Security group ids to allow inbound traffic from
+
+  DbName:
+    Type: String
+    Description: The name of the default database in the instance
+  
+  DbUsername:
+    Type: String
+    Description: Master username for the RDS database
+
+  DbPassword:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Master password for the RDS database
+
+  DbClass:
+    Type: String
+    Default: db.t2.small
+    Description: Database instance class
+    AllowedValues: [ db.t2.micro, db.t2.small, db.t2.medium, db.t2.large, db.t3.micro, db.t3.small, db.t3.medium, db.t3.large, db.m1.small, db.m1.large, db.m1.xlarge, db.m2.xlarge, db.m4.large, db.m4.xlarge, db.m4.2xlarge, db.m4.4xlarge, db.m4.10xlarge, db.m3.medium, db.m3.large, db.m3.xlarge, db.m3.2xlarge, db.r3.large, db.r3.xlarge, db.r3.2xlarge, db.r3.4xlarge, db.r3.8xlarge ]
+
+  DbAllocatedStorage:
+    Type: Number
+    Default: 50
+    Description: The amount of storage (in GB) to allocate to the DB Instance
+
+  DbStorageClass:
+    Type: String    
+    Description: The database storage class to use
+    Default: gp2
+    AllowedValues:
+    - gp2
+    - standard
+  
+  DbStorageEncrypted:
+    Type: String
+    Default: false
+    Description: Specifies whether the DB instance is encrypted
+    AllowedValues:
+    - true
+    - false
+
+  DbFamily:
+    Type: String
+    Description: The database engine family for the ParameterGroup
+
+  DbEngine:
+    Type: String
+    Description: The database engine for the RDS
+
+  DbEngineVersion:
+    Type: String
+    Description: The database engine version
+
+  DbPort:
+    Type: Number
+    Description: The port number for the Database engine
+
+  DbSnapshotIdentifier:
+    Type: String
+    Default: ''
+    Description: Optional - The RDS snapshot to restore the DB instance
+
+  PreferredBackupWindow:
+    Description: Enter Preferred Backup Window Time (UTC).
+    Type: String
+    Default: 17:00-19:00
+
+  PreferredMaintenanceWindow:
+    Description: Enter Preferred Maintenance Window Time (UTC).
+    Type: String
+    Default: Sun:19:00-Sun:23:00
+
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 5
+    Description: Number of days to keep the database backup
+
+  OwnerName:
+    Type: String
+    Default: efabless
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Description: The name of the project to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Conditions:
+
+  RestoreFromSnapshot: !Not [ !Equals [ !Ref DbSnapshotIdentifier, '' ] ]
+
+  UseSecretsManager: !Equals [ !Ref DbPassword, '' ]
+
+  HasSourceSecurityGroup: !Not [ !Equals [ !Join [ ',', !Ref SourceSecurityGroupIds ], '' ] ]
+
+Resources:
+
+  # ########## Security Groups #########
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VpcId
+      GroupName: !Sub ${Identifier}-${Environment}-rds-sg
+      GroupDescription: Allow connections to the database port only from the soruce security group
+      SecurityGroupIngress: !If
+      - HasSourceSecurityGroup
+      - - { IpProtocol: 6, SourceSecurityGroupId: !Select [ 0, !Ref SourceSecurityGroupIds ], FromPort: !Ref DbPort, ToPort: !Ref DbPort }
+      - !Ref AWS::NoValue
+      SecurityGroupEgress:
+      - { IpProtocol: -1, CidrIp: "0.0.0.0/0" }
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rds-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  # ############# Database #############
+
+  ParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: Parameter Group for ${Identifier}-${Environment} - ${DbFamily} 
+      Family: !Ref DbFamily
+      Parameters: !Ref AWS::NoValue
+
+  SubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      SubnetIds: !Ref SubnetIds
+      DBSubnetGroupName: !Sub ${Identifier}-${Environment}-subnetgroup
+      DBSubnetGroupDescription: !Sub Subnets available for ${Identifier}-${Environment} RDS
+
+  DbCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: UseSecretsManager
+    Properties:
+      Name: !Sub /databases/${Environment}/${Identifier}
+      Description: !Sub Credentials secret for ${Identifier}-${Environment} database
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DbUsername}"}'
+        GenerateStringKey: password
+        PasswordLength: 16
+        ExcludeCharacters: '\"@/\\'
+  
+  SecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Condition: UseSecretsManager
+    Properties:
+      SecretId: !Ref DbCredentialsSecret
+      TargetId: !Ref DBInstance
+      TargetType: AWS::RDS::DBInstance
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-rds
+      DBName: !If [ RestoreFromSnapshot, !Ref 'AWS::NoValue', !Ref DbName ]
+      MasterUsername: !If [ RestoreFromSnapshot, !Ref 'AWS::NoValue', !If [ UseSecretsManager, !Sub '{{resolve:secretsmanager:${DbCredentialsSecret}:SecretString:username}}', !Ref DbUsername ] ]
+      MasterUserPassword: !If [ RestoreFromSnapshot, !Ref 'AWS::NoValue', !If [ UseSecretsManager, !Sub '{{resolve:secretsmanager:${DbCredentialsSecret}:SecretString:password}}', !Ref DbPassword ] ]
+      Port: !Ref DbPort
+      Engine: !Ref DbEngine
+      EngineVersion: !Ref DbEngineVersion
+      DBInstanceClass: !Ref DbClass
+      AllocatedStorage: !Ref DbAllocatedStorage
+      StorageType: !Ref DbStorageClass
+      StorageEncrypted: !Ref DbStorageEncrypted
+      DBParameterGroupName: !Ref ParameterGroup
+      DBSubnetGroupName: !Ref SubnetGroup
+      VPCSecurityGroups:
+      - !Ref SecurityGroup
+      DbSnapshotIdentifier: !If [ RestoreFromSnapshot, !Ref DbSnapshotIdentifier, !Ref 'AWS::NoValue' ]
+      MultiAZ: true
+      PubliclyAccessible: false
+      DeletionProtection: true
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      CopyTagsToSnapshot: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rds
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+
+  DbEndpoint:
+    Description: Primary endpoint address
+    Value: !GetAtt DBInstance.Endpoint.Address
+
+  DbPort:
+    Description: Database endpoint port number
+    Value: !GetAtt DBInstance.Endpoint.Port
+
+  DbSecurityGroupId:
+    Description: Database security group
+    Value: !Ref SecurityGroup
+
+  DbName:
+    Description: Default database name
+    Value: !Ref DbName
+
+  CredentialsSecret:
+    Description: The database credentials secret
+    Value: !Ref DbCredentialsSecret
