@@ -1,0 +1,145 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  It creates an elasticache cluster and a security group for the cluster.
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Description: A name identifier for the elasticache cluster
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to host the elasticache cluster
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Ids to host the elasticache cluster
+
+  SourceSecurityGroupIds:
+    Type: List<String>
+    Default: ''
+    Description: Security group ids to allow inbound traffic from
+
+  ElasticachePort:
+    Type: Number
+    Default: 6379
+    Description: Define the port to be used for Elasticache cluster
+
+  CacheNodeType:
+    Type: String
+    Default: cache.t2.small
+    Description: The compute and memory capacity of the nodes in the node group (shard).
+
+  CacheParameterGroupFamily:
+    Type: String
+    Default: redis4.0
+    Description: he name of the cache parameter group family that this cache parameter group is compatible with.
+    AllowedValues: [ redis2.6, redis2.8, redis3.2, redis4.0, redis5.0 ]
+
+  ElasticacheEngine:
+    Type: String
+    Default: redis
+    Description: The name of the cache engine to be used for this cluster.
+
+  EngineVersion:
+    Type: String
+    Default: '4.0.10'
+    Description: The number of the version for the cache engine to be used for this cluster.
+
+  NumCacheNodes:
+    Type: Number
+    Default: 1
+    Description: The number of cache nodes that the cache cluster should have.
+  
+  # ############### Stack ##############
+
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  StackName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Conditions:
+
+  HasSourceSecurityGroup: !Not [ !Equals [ !Join [ ',', !Ref SourceSecurityGroupIds ], '' ] ]
+
+Resources:
+
+  # ############## S Groups ##############
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VpcId
+      GroupName: !Sub ${Identifier}-${Environment}-elasticache-sg
+      GroupDescription: Allow connections to the redis cluster port only from the soruce security group
+      SecurityGroupIngress: !If
+      - HasSourceSecurityGroup
+      - - { IpProtocol: 6, SourceSecurityGroupId: !Select [ 0, !Ref SourceSecurityGroupIds ], FromPort: !Ref ElasticachePort, ToPort: !Ref ElasticachePort }
+      - !Ref AWS::NoValue
+      SecurityGroupEgress:
+      - { IpProtocol: -1, CidrIp: "0.0.0.0/0" }
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rds-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  SubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties: 
+      CacheSubnetGroupName: ${Identifier}-${Environment}-elasticache-subnetgroup
+      Description: Subnet group for the elasticache cluster
+      SubnetIds: !Ref SubnetIds
+
+  ParameterGroup:
+    Type: AWS::ElastiCache::ParameterGroup
+    Properties: 
+      CacheParameterGroupFamily: !Ref CacheParameterGroupFamily
+      Description: Parameter group for the redis cluster
+
+  # ############## Elasticache Cluster ##############
+
+  CacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties: 
+      CacheNodeType: !Ref CacheNodeType
+      CacheParameterGroupName: !Ref ParameterGroup
+      CacheSecurityGroupNames: 
+        - !Ref SecurityGroup
+      CacheSubnetGroupName: !Ref SubnetGroup
+      ClusterName: !Sub ${Identifier}-${Environment}-redis-cluster
+      Engine: !Ref ElasticacheEngine
+      EngineVersion: !Ref EngineVersion
+      NumCacheNodes: !Ref NumCacheNodes
+      Port: !Ref ElasticachePort
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-elasticache-cluster
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref StackName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+
+  Cluster:
+    Description: The elasticache cluster id
+    Value: !Ref CacheCluster
