@@ -96,14 +96,14 @@ Resources:
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
-        Value: !Ref ProjectName
+        Value: !Ref StackName
       - Key: Environment
         Value: !Ref Environment
 
   SubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties: 
-      CacheSubnetGroupName: ${Identifier}-${Environment}-elasticache-subnetgroup
+      CacheSubnetGroupName: !Sub ${Identifier}-${Environment}-elasticache-subnetgroup
       Description: Subnet group for the elasticache cluster
       SubnetIds: !Ref SubnetIds
 
@@ -120,14 +120,14 @@ Resources:
     Properties: 
       CacheNodeType: !Ref CacheNodeType
       CacheParameterGroupName: !Ref ParameterGroup
-      CacheSecurityGroupNames: 
-        - !Ref SecurityGroup
       CacheSubnetGroupName: !Ref SubnetGroup
       ClusterName: !Sub ${Identifier}-${Environment}-redis-cluster
       Engine: !Ref ElasticacheEngine
       EngineVersion: !Ref EngineVersion
       NumCacheNodes: !Ref NumCacheNodes
       Port: !Ref ElasticachePort
+      VpcSecurityGroupIds:
+        - !Ref SecurityGroup
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-elasticache-cluster
@@ -143,3 +143,7 @@ Outputs:
   Cluster:
     Description: The elasticache cluster id
     Value: !Ref CacheCluster
+
+  SecurityGroup:
+    Description: The sg for the cluster
+    Value: !Ref SecurityGroup
