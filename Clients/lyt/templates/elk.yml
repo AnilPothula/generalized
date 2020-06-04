@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy AWS Elasticsearch
+Parameters:
+  NodeStorageSize:
+    Type: Number
+    Description: Amount of EBS storage to provision per cluster node
+  NodeStorageType:
+    Type: String
+    Description: Type of EBS storage to provision per node
+    Default: gp2
+    AllowedValues:
+      - standard
+      - gp2
+      - io1
+  InstanceCount:
+    Type: Number
+    Description: Number of instances in the ElasticSearch cluster
+    Default: 2
+    MinValue: 2
+    MaxValue: 10
+  InstanceType:
+    Type: String
+    Description: Hardware type for each Elastic Search instance
+    Default: t2.medium.elasticsearch
+    AllowedValues:
+      - t2.medium.elasticsearch
+      - r4.large.elasticsearch
+      - r4.xlarge.elasticsearch
+      - r4.2xlarge.elasticsearch
+      - c4.large.elasticsearch
+      - c4.xlarge.elasticsearch
+      - c4.2xlarge.elasticsearch
+  ElasticsearchVersion:
+    Type: String
+    Description: Version of Elastic Search to deploy
+    Default: 6.0
+    AllowedValues:
+      - 6.0
+      - 5.3
+  AutomatedDailySnapshotHour:
+    Type: Number
+    Description: Hour to start the automated daily snapshot
+    Default: 0
+    MinValue: 0
+    MaxValue: 23
+  Environment:
+    Type: String
+    Default: Dev
+    AllowedValues: [Prod, Stage, Dev]
+
+  StackName:
+    Type: String
+    Description: Stack name to prefix some resource names
+
+Resources:
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: !Ref NodeStorageSize
+        VolumeType: !Ref NodeStorageType
+      ElasticsearchClusterConfig:
+        InstanceCount: !Ref InstanceCount
+        ZoneAwarenessEnabled: true
+        InstanceType: !Ref InstanceType
+      ElasticsearchVersion: !Ref ElasticsearchVersion
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: !Ref AutomatedDailySnapshotHour
+      Tags:
+        - Key: Name
+          Value: !Sub ${StackName}-elk
+        - Key: Environment
+          Value: !Sub ${StackName}-${Environment}
+Outputs:
+  ESArn:
+    Description: ARN for the elasticsearch domain
+    Value: !GetAtt ElasticsearchDomain.DomainArn
+  ESEndpoint:
+    Description: Endpoint for the elasticsearch cluster
+    Value: !GetAtt ElasticsearchDomain.DomainEndpoint
