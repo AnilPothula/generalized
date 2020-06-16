@@ -1,0 +1,43 @@
+{
+  "name": "elasticsearch",
+  "description": "Installs/Configures elasticsearch on OpsWorks",
+  "long_description": "Installs/Configures elasticsearch on OpsWorks",
+  "maintainer": "Shan",
+  "maintainer_email": "shanmugakarna89@gmail.com",
+  "license": "All Rights Reserved",
+  "platforms": {
+  },
+  "dependencies": {
+  },
+  "recommendations": {
+  },
+  "suggestions": {
+  },
+  "conflicting": {
+  },
+  "providing": {
+  },
+  "replacing": {
+  },
+  "attributes": {
+  },
+  "groupings": {
+  },
+  "recipes": {
+  },
+  "version": "0.1.0",
+  "source_url": "",
+  "issues_url": "",
+  "privacy": false,
+  "chef_versions": [
+    [
+      ">= 12.1"
+    ]
+  ],
+  "ohai_versions": [
+
+  ],
+  "gems": [
+
+  ]
+}

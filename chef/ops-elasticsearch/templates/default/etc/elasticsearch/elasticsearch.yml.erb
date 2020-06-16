@@ -1,0 +1,19 @@
+cluster.name: <%= @cluster_name %>
+
+node.name: <%= @node_name %>
+node.master: <%= @node['elasticsearch']['is_master'] %>
+node.data: <%= @node['elasticsearch']['is_data'] %>
+#node.attr.rack: r1
+
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+#bootstrap.memory_lock: true
+
+network.host: 0.0.0.0
+http.port: 9200
+
+discovery.seed_hosts: [ <% @master_nodes.each do |master_node| -%>"<%= master_node %>"<%= "," unless master_node == @master_nodes.last %><% end -%> ]
+cluster.initial_master_nodes: [ <% @master_nodes.each do |master_node| -%>"<%= master_node %>"<%= "," unless master_node == @master_nodes.last %><% end -%> ]
+#gateway.recover_after_nodes: 3
+action.destructive_requires_name: true
