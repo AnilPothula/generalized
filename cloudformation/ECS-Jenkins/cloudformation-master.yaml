@@ -20,7 +20,7 @@ Parameters:
     Default: 8080
   LoadBalancerPort:
     Type: Number
-    Default: 443
+    Default: 80
   HealthCheckPath:
     Type: String
     Default: /login
@@ -107,6 +107,10 @@ Resources:
             Value: !Sub "${SubnetA},${SubnetB}"
           - Name: VPC
             Value: !Ref VPC
+          MountPoints:
+            - ContainerPath: "/var/run/docker.sock"
+              SourceVolume: docker-socket
+              ReadOnly: false
   # A role needed by ECS
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -124,7 +128,7 @@ Resources:
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join ['', [!Ref ServiceName, TaskRole]]
+      RoleName: !Join ['', [!Ref ServiceName, TR]]
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -185,13 +189,13 @@ Resources:
               - "ssm:GetParameter"
             Effect: Allow
             Resource:
-            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkins/*"
+            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkinsmaster/*"
           -
             Action:
               - "ssm:PutParameter"
             Effect: Allow
             Resource:
-            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkins/*"
+            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkinsmaster/*"
           -
             Action:
             - "kms:Decrypt"
@@ -207,7 +211,7 @@ Resources:
   AutoScalingRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join ['', [!Ref ServiceName, AutoScalingRole]]
+      RoleName: !Join ['', [!Ref ServiceName, ASR]]
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -219,7 +223,7 @@ Resources:
   ContainerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Join ['', [!Ref ServiceName, ContainerSecurityGroup]]
+      GroupDescription: !Join ['', [!Ref ServiceName, CSG]]
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -289,7 +293,7 @@ Resources:
       HealthCheckTimeoutSeconds: 9
       UnhealthyThresholdCount: 2
       HealthyThresholdCount: 2
-      Name: !Join ['', [!Ref ServiceName, TargetGroup]]
+      Name: !Join ['', [!Ref ServiceName, TG]]
       Port: !Ref ContainerPort
       Protocol: HTTP
       TargetGroupAttributes:
@@ -315,7 +319,7 @@ Resources:
         # this is the default, but is specified here in case it needs to be changed
         - Key: idle_timeout.timeout_seconds
           Value: 60
-      Name: !Join ['', [!Ref ServiceName, LoadBalancer]]
+      Name: !Join ['', [!Ref ServiceName, LB]]
       # "internal" is also an option
       Scheme: internet-facing
       SecurityGroups:

@@ -1,6 +1,6 @@
 .PHONY: help deploy-master docker deploy-ecr
 
-stackName = ricardo-test-jenkins
+stackName = lyt-jenkins-test-masterslave
 region = us-west-2
 accountid = $(shell aws sts get-caller-identity --query Account --output text)
 servicename = $(shell cat parameters.properties|grep ServiceName)
@@ -28,9 +28,9 @@ deploy-ecr:
 		--query Stacks[0].Outputs[*].OutputValue
 
 docker:
-	docker build -t $(shell aws ssm get-parameters --region us-west-2 --names /jenkins/docker-uri --query Parameters[].Value --output text):latest docker
+	docker build -t $(shell aws ssm get-parameters --region us-west-2 --names /jenkinsmaster/docker-uri --query Parameters[].Value --output text):latest docker
 	aws ecr get-login-password --region $(region) | docker login --username AWS --password-stdin $(accountid).dkr.ecr.$(region).amazonaws.com
-	docker push $(shell aws ssm get-parameters --region us-west-2 --names /jenkins/docker-uri --query Parameters[].Value --output text):latest
+	docker push $(shell aws ssm get-parameters --region us-west-2 --names /jenkinsmaster/docker-uri --query Parameters[].Value --output text):latest
 
 deploy-master:
 	aws cloudformation deploy \

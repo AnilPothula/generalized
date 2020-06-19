@@ -8,7 +8,7 @@ Resources:
   ECRRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: jenkins-master
+      RepositoryName: lyt-jenkinsmaster
       RepositoryPolicyText:
         Version: '2008-10-17'
         Statement:
@@ -39,7 +39,7 @@ Resources:
     Type: AWS::SSM::Parameter
     Properties:
       Description: Docker repo URI for jenkins master
-      Name: '/jenkins/docker-uri'
+      Name: '/jenkinsmaster/docker-uri'
       Type: 'String'
       Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}
 Outputs:
