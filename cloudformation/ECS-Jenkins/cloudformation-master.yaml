@@ -136,9 +136,14 @@ Resources:
             Resource: "*"
           -
             Action:
-              - "ecs:ListContainerInstances"
+              - "ecr:*"
             Effect: Allow
-            Resource: !Ref ECSClusterARN
+            Resource: "*"
+          -
+            Action:
+              - "ecs:*"
+            Effect: Allow
+            Resource:  "*"
           -
             Action:
               - "ecs:RunTask"
@@ -168,18 +173,6 @@ Resources:
               - "iam:PassRole"
             Effect: Allow
             Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
-          -
-            Action:
-              - "ssm:GetParameter"
-            Effect: Allow
-            Resource:
-            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkinsmaster/*"
-          -
-            Action:
-              - "ssm:PutParameter"
-            Effect: Allow
-            Resource:
-            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkinsmaster/*"
           -
             Action:
             - "kms:Decrypt"
