@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for Jenkins Master on Fargate with EFS
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+  SubnetA:
+    Type: AWS::EC2::Subnet::Id
+  SubnetB:
+    Type: AWS::EC2::Subnet::Id
+  # Certificate:
+  #   Type: String
+  #   # Update with the certificate ARN from Certificate Manager, which must exist in the same region.
+  #   Default: 'arn:aws:acm:region:123456789012:certificate/00000000-0000-0000-0000-000000000000'
+  ServiceName:
+    Type: String
+    # update with the name of the service
+  ContainerPort:
+    Type: Number
+    Default: 8080
+  LoadBalancerPort:
+    Type: Number
+    Default: 80
+  HealthCheckPath:
+    Type: String
+    Default: /login
+  ECSClusterARN:
+    Type: String
+  ECSCluster:
+    Type: String
+  ImageName:
+    Type: String
+    Default: 695292474035.dkr.ecr.us-west-2.amazonaws.com/lyt-jenkinsmaster:latest
+  # HostedZoneName:
+  #   Type: String
+  #   Default: company.com
+  # Subdomain:
+  #   Type: String
+  #   Default: jenkins
+Resources:
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    # Makes sure the log group is created before it is used.
+    DependsOn: LogGroup
+    Properties:
+      # Name of the task definition. Subsequent versions of the task definition are grouped together under this name.
+      Family: !Join ['', [!Ref ServiceName, TaskDefinition]]
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !Ref ExecutionRole
+      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that grants containers in the task permission to call AWS APIs on your behalf."
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Ref ImageName
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+            - ContainerPort: 50000
+          # Send logs to CloudWatch Logs
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+          Environment:
+          - Name: JENKINS_URL
+            Value: !GetAtt LoadBalancer.DNSName
+          - Name: JENKINS_HOST
+            Value: !GetAtt LoadBalancer.DNSName
+          - Name: NLB_PORT
+            Value: '50000'
+          - Name: NLB_TARGET_GROUP_ARN
+            Value: !Ref NetworkLoadBalancerTargetGroup
+          - Name: NLB_DNS_NAME
+            Value: !GetAtt NetworkLoadBalancer.DNSName
+          - Name: ECS_AGENT_CLUSTER
+            Value: !Ref ECSClusterARN
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: JENKINS_SLAVE_AGENT_PORT
+            Value: '50000'
+          - Name: AGENT_SECURITY_GROUP
+            Value: !GetAtt AgentSecurityGroup.GroupId
+          - Name: SUBNETS
+            Value: !Sub "${SubnetA},${SubnetB}"
+          - Name: VPC
+            Value: !Ref VPC
+          MountPoints:
+            - ContainerPath: "/var/run/docker.sock"
+              SourceVolume: docker-socket
+              ReadOnly: false
+      Volumes:
+        - Name: docker-socket
+          Host:
+            SourcePath: "/var/run/docker.sock"
+  # A role needed by ECS
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, ExecutionRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+  # A role for the containers
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, TR]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+      - PolicyName: !Sub ecs-${AWS::StackName}
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          -
+            Action:
+              - "ecs:RegisterTaskDefinition"
+              - "ecs:ListClusters"
+              - "ecs:DescribeContainerInstances"
+              - "ecs:ListTaskDefinitions"
+              - "ecs:DescribeTaskDefinition"
+              - "ecs:DeregisterTaskDefinition"
+            Effect: Allow
+            Resource: "*"
+          -
+            Action:
+              - "ecs:ListContainerInstances"
+            Effect: Allow
+            Resource: !Ref ECSClusterARN
+          -
+            Action:
+              - "ecs:RunTask"
+            Effect: Allow
+            Condition:
+              ArnEquals:
+                ecs:cluster: !Ref ECSClusterARN
+            Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/*"
+          -
+            Action:
+              - "ecs:StopTask"
+            Effect: Allow
+            Condition:
+              ArnEquals:
+                ecs:cluster: !Ref ECSClusterARN
+            Resource: !Sub "arn:aws:ecs:*:*:task/*" # "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/*"
+          -
+            Action:
+              - "ecs:DescribeTasks"
+            Effect: Allow
+            Condition:
+              ArnEquals:
+                ecs:cluster: !Ref ECSClusterARN
+            Resource: !Sub "arn:aws:ecs:*:*:task/*" # "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/*"
+          -
+            Action:
+              - "iam:PassRole"
+            Effect: Allow
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
+          -
+            Action:
+              - "ssm:GetParameter"
+            Effect: Allow
+            Resource:
+            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkinsmaster/*"
+          -
+            Action:
+              - "ssm:PutParameter"
+            Effect: Allow
+            Resource:
+            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jenkinsmaster/*"
+          -
+            Action:
+            - "kms:Decrypt"
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm
+          -
+            Action:
+              - "cloudwatch:PutMetricData"
+            Effect: Allow
+            Resource: "*"
+  # A role needed for auto scaling
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, ASR]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join ['', [!Ref ServiceName, CSG]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 50000
+          ToPort: 50000
+          SourceSecurityGroupId: !Ref AgentSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 50000
+          ToPort: 50000
+          CidrIp: 0.0.0.0/0  # needed for NLB healthchecks
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join ['', [!Ref ServiceName, LoadBalancerSecurityGroup]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref LoadBalancerPort
+          ToPort: !Ref LoadBalancerPort
+          CidrIp: 0.0.0.0/0
+  AgentSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join ['', [!Ref ServiceName, AgentSecurityGroup]]
+      VpcId: !Ref VPC
+  Service:
+    Type: AWS::ECS::Service
+    # This dependency is needed so that the load balancer is setup correctly in time
+    DependsOn:
+      - ListenerHTTPS
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      DesiredCount: 1
+      # This may need to be adjusted if the container takes a while to start up
+      HealthCheckGracePeriodSeconds: 150
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+        - ContainerName: !Ref ServiceName
+          ContainerPort: 50000
+          TargetGroupArn: !Ref NetworkLoadBalancerTargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckTimeoutSeconds: 9
+      UnhealthyThresholdCount: 2
+      HealthyThresholdCount: 2
+      Name: !Join ['', [!Ref ServiceName, TG]]
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 90 # default is 300
+      VpcId: !Ref VPC
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref LoadBalancerPort
+      Protocol: HTTP
+      # Certificates:
+      #   - CertificateArn: !Ref Certificate
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        # this is the default, but is specified here in case it needs to be changed
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+      Name: !Join ['', [!Ref ServiceName, LB]]
+      # "internal" is also an option
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+
+  NetworkLoadBalancerTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Port: 50000
+      Protocol: TCP
+      VpcId: !Ref VPC
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+
+  NetworkLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref NetworkLoadBalancerTargetGroup
+      LoadBalancerArn: !Ref NetworkLoadBalancer
+      Port: 50000
+      Protocol: TCP
+
+  NetworkLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internal
+      Type: network
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+      LoadBalancerAttributes:
+      - Key: load_balancing.cross_zone.enabled
+        Value: "true"
+  # DNSRecord:
+  #   Type: AWS::Route53::RecordSet
+  #   Properties:
+  #     HostedZoneName: !Join ['', [!Ref HostedZoneName, .]]
+  #     Name: !Join ['', [!Ref Subdomain, ., !Ref HostedZoneName, .]]
+  #     Type: A
+  #     AliasTarget:
+  #       DNSName: !GetAtt LoadBalancer.DNSName
+  #       HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['', [/ecs/, !Ref ServiceName, TaskDefinition]]
+  # AutoScalingPolicy:
+  #   Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  #   Properties:
+  #     PolicyName: !Join ['', [!Ref ServiceName, AutoScalingPolicy]]
+  #     PolicyType: TargetTrackingScaling
+  #     ScalingTargetId: !Ref AutoScalingTarget
+  #     TargetTrackingScalingPolicyConfiguration:
+  #       PredefinedMetricSpecification:
+  #         PredefinedMetricType: ECSServiceAverageCPUUtilization
+  #       ScaleInCooldown: 10
+  #       ScaleOutCooldown: 10
+  #       # Keep things at or lower than 50% CPU utilization, for example
+  #       TargetValue: !Ref AutoScalingTargetValue
+Outputs:
+  # Endpoint:
+  #   Description: Endpoint
+  #   Value: !Join ['', ['https://', !Ref DNSRecord]]
+  AgentSG:
+    Description: security group id that needs to be used for agents
+    Value: !GetAtt AgentSecurityGroup.GroupId
