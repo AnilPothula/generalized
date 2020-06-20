@@ -14,7 +14,6 @@ Parameters:
   ServiceName:
     Type: String
     # update with the name of the service
-    Default: ECSJenkins
   ContainerPort:
     Type: Number
     Default: 8080
@@ -24,6 +23,13 @@ Parameters:
   HealthCheckPath:
     Type: String
     Default: /login
+  ECSClusterARN:
+    Type: String
+  ECSCluster:
+    Type: String
+  ImageName:
+    Type: String
+    Default: 695292474035.dkr.ecr.us-west-2.amazonaws.com/lyt-jenkinsmaster:latest
   # HostedZoneName:
   #   Type: String
   #   Default: company.com
@@ -31,14 +37,6 @@ Parameters:
   #   Type: String
   #   Default: jenkins
 Resources:
-  Cluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: !Join ['', [!Ref ServiceName, Cluster]]
-  AgentCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: !Join ['', [!Ref ServiceName, AgentCluster]]
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     # Makes sure the log group is created before it is used.
@@ -46,32 +44,14 @@ Resources:
     Properties:
       # Name of the task definition. Subsequent versions of the task definition are grouped together under this name.
       Family: !Join ['', [!Ref ServiceName, TaskDefinition]]
-      # awsvpc is required for Fargate
-      NetworkMode: awsvpc
-      RequiresCompatibilities:
-        - FARGATE
-      # 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB
-      # 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB
-      # 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB
-      # 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments
-      # 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments
       Cpu: '1024'
-      # 0.5GB, 1GB, 2GB - Available cpu values: 256 (.25 vCPU)
-      # 1GB, 2GB, 3GB, 4GB - Available cpu values: 512 (.5 vCPU)
-      # 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB - Available cpu values: 1024 (1 vCPU)
-      # Between 4GB and 16GB in 1GB increments - Available cpu values: 2048 (2 vCPU)
-      # Between 8GB and 30GB in 1GB increments - Available cpu values: 4096 (4 vCPU)
-      Memory: '3GB'
-      # A role needed by ECS.
-      # "The ARN of the task execution role that containers in this task can assume. All containers in this task are granted the permissions that are specified in this role."
-      # "There is an optional task execution IAM role that you can specify with Fargate to allow your Fargate tasks to make API calls to Amazon ECR."
+      Memory: '2048'
       ExecutionRoleArn: !Ref ExecutionRole
       # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that grants containers in the task permission to call AWS APIs on your behalf."
       TaskRoleArn: !Ref TaskRole
       ContainerDefinitions:
         - Name: !Ref ServiceName
-          Image:
-            Fn::ImportValue: !Sub ${ServiceName}-docker-uri
+          Image: !Ref ImageName
           PortMappings:
             - ContainerPort: !Ref ContainerPort
             - ContainerPort: 50000
@@ -94,7 +74,7 @@ Resources:
           - Name: NLB_DNS_NAME
             Value: !GetAtt NetworkLoadBalancer.DNSName
           - Name: ECS_AGENT_CLUSTER
-            Value: !GetAtt AgentCluster.Arn
+            Value: !Ref ECSClusterARN
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: ACCOUNT_ID
@@ -111,6 +91,10 @@ Resources:
             - ContainerPath: "/var/run/docker.sock"
               SourceVolume: docker-socket
               ReadOnly: false
+      Volumes:
+        - Name: docker-socket
+          Host:
+            SourcePath: "/var/run/docker.sock"
   # A role needed by ECS
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -154,14 +138,14 @@ Resources:
             Action:
               - "ecs:ListContainerInstances"
             Effect: Allow
-            Resource: !GetAtt AgentCluster.Arn
+            Resource: !Ref ECSClusterARN
           -
             Action:
               - "ecs:RunTask"
             Effect: Allow
             Condition:
               ArnEquals:
-                ecs:cluster: !GetAtt AgentCluster.Arn
+                ecs:cluster: !Ref ECSClusterARN
             Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/*"
           -
             Action:
@@ -169,7 +153,7 @@ Resources:
             Effect: Allow
             Condition:
               ArnEquals:
-                ecs:cluster: !GetAtt AgentCluster.Arn
+                ecs:cluster: !Ref ECSClusterARN
             Resource: !Sub "arn:aws:ecs:*:*:task/*" # "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/*"
           -
             Action:
@@ -177,7 +161,7 @@ Resources:
             Effect: Allow
             Condition:
               ArnEquals:
-                ecs:cluster: !GetAtt AgentCluster.Arn
+                ecs:cluster: !Ref ECSClusterARN
             Resource: !Sub "arn:aws:ecs:*:*:task/*" # "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/*"
           -
             Action:
@@ -259,7 +243,7 @@ Resources:
     DependsOn:
       - ListenerHTTPS
     Properties:
-      Cluster: !Ref Cluster
+      Cluster: !Ref ECSCluster
       TaskDefinition: !Ref TaskDefinition
       DeploymentConfiguration:
         MinimumHealthyPercent: 100
@@ -267,16 +251,7 @@ Resources:
       DesiredCount: 1
       # This may need to be adjusted if the container takes a while to start up
       HealthCheckGracePeriodSeconds: 150
-      LaunchType: FARGATE
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          # change to DISABLED if you're using private subnets that have access to a NAT gateway
-          AssignPublicIp: ENABLED
-          Subnets:
-            - !Ref SubnetA
-            - !Ref SubnetB
-          SecurityGroups:
-            - !Ref ContainerSecurityGroup
+      LaunchType: EC2
       LoadBalancers:
         - ContainerName: !Ref ServiceName
           ContainerPort: !Ref ContainerPort
@@ -299,7 +274,6 @@ Resources:
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: 90 # default is 300
-      TargetType: ip
       VpcId: !Ref VPC
   ListenerHTTPS:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -334,7 +308,6 @@ Resources:
       Port: 50000
       Protocol: TCP
       VpcId: !Ref VPC
-      TargetType: ip
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 2
 
@@ -372,16 +345,6 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Join ['', [/ecs/, !Ref ServiceName, TaskDefinition]]
-  AutoScalingTarget:
-    Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Properties:
-      MinCapacity: 1
-      MaxCapacity: 2
-      ResourceId: !Join ['/', [service, !Ref Cluster, !GetAtt Service.Name]]
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that allows Application Auto Scaling to modify your scalable target."
-      RoleARN: !GetAtt AutoScalingRole.Arn
   # AutoScalingPolicy:
   #   Type: AWS::ApplicationAutoScaling::ScalingPolicy
   #   Properties:
