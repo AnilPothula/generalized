@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Template for Jenkins Master on Fargate with EFS - ECR repo
+Description: Template for Jenkins Master on Fargate ECR repo
 Parameters:
   ServiceName:
     Type: String
-    Default: ECSJenkins
+    Default: lytjenkinsservicemaster
 Resources:
   ECRRepository:
     Type: AWS::ECR::Repository
@@ -35,13 +35,6 @@ Resources:
           - ecr:BatchGetImage
           - ecr:BatchCheckLayerAvailability
           - ecr:GetAuthorizationToken
-  ECRParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description: Docker repo URI for jenkins master
-      Name: '/jenkinsmaster/docker-uri'
-      Type: 'String'
-      Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}
 Outputs:
   ECRURI:
     Description: URI of jenkins master repo

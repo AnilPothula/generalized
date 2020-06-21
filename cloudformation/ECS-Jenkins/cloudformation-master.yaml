@@ -29,7 +29,10 @@ Parameters:
     Type: String
   ImageName:
     Type: String
-    Default: 695292474035.dkr.ecr.us-west-2.amazonaws.com/lyt-jenkinsmaster:latest
+    Default: 084606521543.dkr.ecr.us-west-2.amazonaws.com/lyt-jenkinsmaster:latest
+  ECSSG:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: ECS Security Group
   # HostedZoneName:
   #   Type: String
   #   Default: company.com
@@ -95,6 +98,30 @@ Resources:
         - Name: docker-socket
           Host:
             SourcePath: "/var/run/docker.sock"
+  ECSSGContainerBaseIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+        GroupId: !Ref ECSSG
+        IpProtocol: 6
+        FromPort: 0
+        ToPort: 65535
+        SourceSecurityGroupId: !Ref ContainerSecurityGroup
+  ECSSGLoadBalancerBaseIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+        GroupId: !Ref ECSSG
+        IpProtocol: 6
+        FromPort: 0
+        ToPort: 65535
+        SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+  ECSSGAgentBaseIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+        GroupId: !Ref ECSSG
+        IpProtocol: 6
+        FromPort: 0
+        ToPort: 65535
+        SourceSecurityGroupId: !Ref AgentSecurityGroup
   # A role needed by ECS
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -236,6 +263,7 @@ Resources:
     DependsOn:
       - ListenerHTTPS
     Properties:
+      ServiceName: !Ref ServiceName
       Cluster: !Ref ECSCluster
       TaskDefinition: !Ref TaskDefinition
       DeploymentConfiguration:
