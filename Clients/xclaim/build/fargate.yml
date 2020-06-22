@@ -1,0 +1,1745 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+# A CloudFormation template to create/configure an AWS Fargate Cluster, Application Load Balancer (ALB),
+# Amazon Elastic Container Registry (ECR), AWS CodePipeline and Service based on parameters. Optionally,
+# you can specify a domain name and/or an AWS Certificate Manager ARN can be passed if you want to
+# enable TLS on the ALB. If you want to create the DNS alias to the ALB, your DNS must be hosted in
+# Amazon Route 53.
+#
+# From the Startup Kit Templates, this template requires the name of an existing vpc.cfn.yml stack as
+# a parameter.
+#
+# If you pass the optional database stack name, it pulls the values for the DB endpoint and username
+# and sets them as environment variables in the container.
+#
+# The service creates CloudWatch Alarms to monitor CPU utilization in order to determine container
+# counts (up and down), but other metrics may be more important in your system.
+# See: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service_autoscaling_tutorial.html
+#
+# This template is released under Apache Version 2.0, and can be forked, copied, modified,
+# customized, etc. to match your application/system requirements.
+
+Description: SASKV5N Fargate
+
+Parameters:
+
+  NetworkStackName:
+    Type: String
+    Description: Name of an active Startup Kit CloudFormation stack that contains networking resources
+
+  RedisStackName:
+    Type: String
+    Description: Name of an active redis stack
+
+  DatabaseStackName:
+    Type: String
+    Description: Name of an optional active Startup Kit CloudFormation stack that contains database resources
+
+  SFTPStackName:
+    Type: String
+    Description: Name of an active SFTP stack for Claims Agent integrations
+
+  HostedZoneName:
+    Type: String
+    Description: The Amazon Route 53 Hosted Zone Name for the optional load balancer alias record - do not include a period at the end
+    Default: ""
+    AllowedPattern: "(^$|^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,6}$)" # Allow for a blank or a domain name
+    ConstraintDescription: Please enter a valid Route 53 Hosted Zone Name
+
+  LoadBalancerDomainName:
+    Type: String
+    Description: Domain name to create an Amazon Route 53 alias record for the load balancer
+    Default: ""
+    AllowedPattern: "(^$|^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,6}$)" # Allow for a blank or a domain name
+    ConstraintDescription: Please enter a valid domain name
+
+  AppProtocol:
+    Type: String
+    Description: The protocol used by the load balancer to route internal traffic to the application server
+    Default: HTTP
+    AllowedValues:
+      - HTTP
+      - HTTPS
+    ConstraintDescription: Specify either HTTP or HTTPS
+
+  SSLCertificateArn:
+    Type: String
+    Description: The SSL/TLS certificate ARN
+    MinLength: 0
+    MaxLength: 2048
+    Default: ""
+
+  HealthCheckPath:
+    Type: String
+    Description: The path for the Application Load Balancer health check. If this stack is brand new, use "/"
+    Default: /api/status
+    MinLength: 1
+    MaxLength: 255
+    ConstraintDescription: Value must be between 1 and 255 characters
+
+  GitSourceRepo:
+    Type: String
+    Default: xclaim-api
+    Description: GitHub source repository - must contain a Dockerfile in the base
+
+  GitBranch:
+    Type: String
+    Default: master
+    Description: GitHub git repository branch - change triggers a new build
+
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: "GitHub API token - see: https://github.com/blog/1509-personal-api-tokens"
+
+  GitHubUser:
+    Type: String
+    Default: XclaimInc
+    Description: GitHub username or organization
+
+  CodeBuildDockerImage:
+    Type: String
+    Default: aws/codebuild/docker:17.09.0
+    Description: Container used EXCLUSIVELY in CodePipeline to build our app container (you probably shouldn't change this)
+
+  SeedDockerImage:
+    Type: String
+    Default: registry.hub.docker.com/library/nginx:1.13
+    Description: Use the image URI for this stack's most recently built image in ECR
+
+  DefaultContainerCpu:
+    Type: Number
+    Description: "Amount of CPU for the container - options available: https://aws.amazon.com/fargate/pricing/"
+    Default: 256
+    MinValue: 256
+    MaxValue: 4096
+    ConstraintDescription: "Value must be between 256 and 4096 - see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size"
+
+  DefaultContainerMemory:
+    Type: Number
+    Description: "Amount of memory for the web and scheduler containers - options available: https://aws.amazon.com/fargate/pricing/"
+    Default: 512
+    MinValue: 512
+    MaxValue: 30720
+    ConstraintDescription: "Value must be between 512 and 30720 - see: https://aws.amazon.com/fargate/pricing/"
+
+  WorkerContainerMemory:
+    Type: Number
+    Description: "Amount of memory for the worker container - options available: https://aws.amazon.com/fargate/pricing/"
+    Default: 1024
+    MinValue: 1024
+    MaxValue: 30720
+    ConstraintDescription: "Value must be between 512 and 30720 - see: https://aws.amazon.com/fargate/pricing/"
+
+  # Scaling params
+  DefaultServiceScaleEvaluationPeriods:
+    Description: The number of periods over which data is compared to the specified threshold
+    Type: Number
+    Default: 2
+    MinValue: 2
+
+  DefaultServiceCpuScaleOutThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling out
+    Default: 50
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+
+  DefaultServiceCpuScaleInThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling in
+    Default: 25
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+
+  DefaultTaskMinContainerCount:
+    Type: Number
+    Description: Minimum number of containers to run for the service
+    Default: 1
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  DefaultTaskMaxContainerCount:
+    Type: Number
+    Description: Maximum number of containers to run for the service when auto scaling out
+    Default: 2
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  ContainerLogRetentionInDays:
+    Type: Number
+    Description: How many days to retain log entries from Rails app (web, worker, etc)
+    Default: 7
+
+  MaxTaggedContainerImagesToRetain:
+    Type: Number
+    Description: The number of tagged container images to retain before expiring
+    MinValue: 1
+    MaxValue: 100
+    ConstraintDescription: Value must be between 1 and 100
+    Default: 20
+
+  DaysToRetainUntaggedContainerImages:
+    Type: Number
+    Description: The number days to retain untagged container images before expiring
+    MinValue: 1
+    MaxValue: 100
+    ConstraintDescription: Value must be between 1 and 100
+    Default: 7
+
+  EnvironmentName:
+    Type: String
+    Description: Environment name (RAILS_ENV)
+    Default: staging
+    AllowedValues:
+      - dev
+      - staging
+      - production
+      - demo
+
+  LoadBalancerAlarmEvaluationPeriods:
+    Description: The number of periods over which data is compared to the specified threshold
+    Type: Number
+    Default: 2
+    MinValue: 2
+    ConstraintDescription: Must be at least two
+
+  LoadBalancerAlarmEvaluationPeriodSeconds:
+    Description: The time over which the specified statistic is applied. Specify time in seconds, in multiples of 60.
+    Type: Number
+    Default: 300
+    MinValue: 60
+    ConstraintDescription: Must be at least 60 seconds
+
+  LoadBalancerLatencySeconds:
+    Description: LoadBalancer latency threshold, in seconds
+    Type: Number
+    Default: 2
+    MinValue: 1
+    ConstraintDescription: Must be at least one second
+
+  EnableLBAlarm:
+    Description: Set to true to enable load balancer latency alarm
+    Type: String
+    ConstraintDescription: Value must be true or false
+    Default: false
+    AllowedValues:
+      - true
+      - false
+
+  CORSAllowedOrigin:
+    Type: String
+    Description: URL to allow CORS requests from
+
+  SMTPServerPasswordArn:
+    Type: String
+    Description: ARN to the SMTP Server Password stored in Secrets Manager
+    MinLength: 0
+    MaxLength: 2048
+    Default: ""
+
+  WorkerTaskMinContainerCount:
+    Type: Number
+    Description: Minimum number of containers to run for the worker service
+    Default: 1
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  WorkerTaskMaxContainerCount:
+    Type: Number
+    Description: Maximum number of containers ro run for the worker service
+    Default: 2
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  WorkerServiceScaleEvaluationPeriods:
+    Description: The number of periods over which data is compared to the specified threshold
+    Type: Number
+    Default: 2
+    MinValue: 2
+
+  WorkerServiceCpuScaleOutThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling out
+    Default: 50
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+
+  WorkerServiceCpuScaleInThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling in
+    Default: 25
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+
+  SchedulerTaskMinContainerCount:
+    Type: Number
+    Description: Minimum number of containers to run for the scheduler service
+    Default: 1
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  RailsMaxThreads:
+    Type: Number
+    Description: Maximum number of rails threads
+    Default: 5
+    MinValue: 2
+    ConstraintDescription: Value must be at least two
+
+  JwtExpirationHours:
+    Type: Number
+    Default: 8760
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  SentryDsnArn:
+    Type: String
+    Default: ""
+    Description: ARN to Sentry DSN in Secrets Manager
+
+  XclaimEinArn:
+    Type: String
+    Default: ""
+    Description: ARN to XCLAIM tax EIN in Secrets Manager
+
+  CourtCredentialsArn:
+    Type: String
+    Default: ""
+    Description: ARN to JSON object of all court credentials in Secrets Manager
+
+  DocusignAccountId:
+    Type: String
+    Default: 6de26566-9dc2-4c52-a205-16a96343b575
+
+  DocusignAudience:
+    Type: String
+    Default: account-d.docusign.com
+
+  DocusignHost:
+    Type: String
+    Default: demo.docusign.net
+
+  DocusignIntegrationKey:
+    Type: String
+    Default: 4ee4be1b-4b8e-45ef-9c31-3c258121639b
+
+  DocusignImpersonatedUser:
+    Type: String
+    Default: 4e256d90-bc58-46f4-b2ac-a99db91f6085
+
+  DocusignPrivateKeyArn:
+    Type: String
+    Description: ARN to the Docusign private key stored in Secrets Manager
+
+  AdminEnabled:
+    Type: String
+    Description: Whether admin urls (i.e. /admin, /sidekiq) are enabled for this environment
+    Default: false
+    AllowedValues:
+      - true
+      - false
+
+  SupportEmail:
+    Type: String
+    Default: hello@x-claim.com
+    Description: support email address for use in emails, etc
+
+  AdminSharedCredsArn:
+    Type: String
+    Description: ARN to Admin shared credentials stored in Secrets Manager
+
+  DatadogKeyArn:
+    Type: String
+    Description: ARN to the Datadog Key stored in Secrets Manager
+    MinLength: 0
+    MaxLength: 2048
+
+Conditions:
+
+  IsDbStackSet: !Not [ !Equals [ !Ref DatabaseStackName, "" ] ]
+
+  CreateRoute53Record: !And
+    - !Not [ !Equals [ !Ref LoadBalancerDomainName, "" ] ]
+    - !Not [ !Equals [ !Ref HostedZoneName, "" ] ]
+
+  IsLBAlarmEnabled: !Equals [ !Ref EnableLBAlarm, true ]
+
+Resources:
+
+  RailsSecretKeyBase:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: 'The secret_key_base for API Rails app'
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+
+  DeviseJWTSecretKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: 'The DEVISE_JWT_SECRET_KEY for API Rails app'
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+
+  DefaultContainerBucket:
+    Type: AWS::S3::Bucket
+
+  CodePipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ecr:GetAuthorizationToken
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeDhcpOptions
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+                  - ec2:CreateNetworkInterfacePermission
+              - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetObjectVersion
+              - Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${EcrDockerRepository}
+                Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+
+  # By default, the build specification is defined in this template, but you can also add buildspec.yml
+  # files in your repos to allow for customization.
+  # See:
+  # https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub
+          - |
+            ---
+            version: 0.2
+            phases:
+              install:
+                commands:
+                  - apt-get update && apt-get -y install python-pip && pip install --upgrade python && pip install --upgrade awscli
+              pre_build:
+                  commands:
+                  - printenv
+                  - TAG="$REPOSITORY_NAME.$ESCAPED_REPOSITORY_BRANCH.$ENVIRONMENT_NAME.$(date +%Y-%m-%d.%H.%M.%S).$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
+                  - $(aws ecr get-login --no-include-email)
+              build:
+                commands:
+                  - docker build --tag $REPOSITORY_URI:$TAG .
+              post_build:
+                commands:
+                  - docker push $REPOSITORY_URI:$TAG
+                  - printf '[{"name":"${ServiceName}","imageUri":"%s"}]' $REPOSITORY_URI:$TAG > build.json
+            artifacts:
+              files: build.json
+          - ServiceName: !Ref GitSourceRepo
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Type: LINUX_CONTAINER
+        Image: !Ref CodeBuildDockerImage
+        EnvironmentVariables:
+          - Name: REPOSITORY_URI
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrDockerRepository}
+          - Name: ENVIRONMENT_NAME
+            Value: !Ref EnvironmentName
+          - Name: REPOSITORY_NAME
+            Value: !Ref GitSourceRepo
+          - Name: REPOSITORY_BRANCH
+            Value: !Ref GitBranch
+          - Name: ESCAPED_REPOSITORY_BRANCH
+            Value: !Join ["", !Split ["/", !Ref GitBranch]]
+          - Name: RAILS_ENV
+            Value: !Ref EnvironmentName
+      Name: !Ref AWS::StackName
+      ServiceRole: !Ref CodeBuildServiceRole
+      VpcConfig:
+        VpcId:
+          Fn::ImportValue: !Sub ${NetworkStackName}-VpcID
+        Subnets:
+          - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet1ID
+          - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet2ID
+        SecurityGroupIds:
+          - Fn::ImportValue: !Sub ${NetworkStackName}-AppSecurityGroupID
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codepipeline-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecs:List*
+                  - ecs:Describe*
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - iam:PassRole
+              - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+    DependsOn:
+      - CodePipelineArtifactBucket
+      - FargateEcsCluster
+
+  # This CodePipeline is used for GitHub based repos. It triggers on a commit to the Git branch passed,
+  # builds the Docker image and then deploys the container in the Fargate Cluster. CodePipeline can support N stages.
+  # For example, you may want to add a stage to test your build and/or container.
+  CodePipelineGitHub:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref CodePipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: App
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              Configuration:
+                Owner: !Ref GitHubUser
+                Repo: !Ref GitSourceRepo
+                Branch: !Ref GitBranch
+                OAuthToken: !Ref GitHubToken
+              OutputArtifacts:
+                - Name: App
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: App
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: DeployWeb
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName: !Ref FargateEcsCluster
+                ServiceName: !GetAtt DefaultFargateService.Name
+                FileName: build.json
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+            - Name: DeployWorker
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName: !Ref FargateEcsCluster
+                ServiceName: !GetAtt WorkerFargateService.Name
+                FileName: build.json
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+            - Name: DeployScheduler
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName: !Ref FargateEcsCluster
+                ServiceName: !GetAtt SchedulerFargateService.Name
+                FileName: build.json
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+    DependsOn:
+      - CodePipelineArtifactBucket
+      - CodeBuildProject
+      - CodePipelineServiceRole
+      - DefaultFargateService
+      - WorkerFargateService
+      - SchedulerFargateService
+
+  # Simple Amazon ECR Lifecycle Policies to try and reduce storage costs
+  # See: https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html
+  EcrDockerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub
+          - |
+            {
+              "rules": [
+                {
+                  "rulePriority": 1,
+                  "description": "Only keep untagged images for ${DaysToRetainUntaggedContainerImages} days",
+                  "selection": {
+                    "tagStatus": "untagged",
+                    "countType": "sinceImagePushed",
+                    "countUnit": "days",
+                    "countNumber": ${DaysToRetainUntaggedContainerImages}
+                  },
+                  "action": { "type": "expire" }
+                },
+                {
+                  "rulePriority": 2,
+                  "description": "Keep only ${MaxTaggedContainerImagesToRetain} tagged images, expire all others",
+                  "selection": {
+                    "tagStatus": "tagged",
+                    "tagPrefixList": [ "${EnvironmentName}" ],
+                    "countType": "imageCountMoreThan",
+                    "countNumber": ${MaxTaggedContainerImagesToRetain}
+                  },
+                  "action": { "type": "expire" }
+                }
+              ]
+            }
+          - DaysToRetainUntaggedContainerImages: !Ref DaysToRetainUntaggedContainerImages
+            MaxTaggedContainerImagesToRetain: !Ref MaxTaggedContainerImagesToRetain
+            EnvironmentName: !Ref EnvironmentName
+
+  FargateEcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref AWS::StackName
+
+  # The ALB lives in two public subnets. See the existing vpc.cfn.yml stack
+  # for ELB/ALB and application security groups which define ingress ports.
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: dualstack
+      Subnets:
+        - Fn::ImportValue: !Sub ${NetworkStackName}-PublicSubnet1ID
+        - Fn::ImportValue: !Sub ${NetworkStackName}-PublicSubnet2ID
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${NetworkStackName}-ELBSecurityGroupID
+      Tags:
+      - Key: Stack
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+      - Key: FargateCluster
+        Value: !Ref FargateEcsCluster
+
+  AlbRoute53ARecord:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateRoute53Record
+    Properties:
+      Name: !Ref LoadBalancerDomainName
+      HostedZoneName: !Sub ${HostedZoneName}.
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+        DNSName: !GetAtt ApplicationLoadBalancer.DNSName
+    DependsOn: ApplicationLoadBalancer
+
+  AlbRoute53AAAARecord:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateRoute53Record
+    Properties:
+      Name: !Ref LoadBalancerDomainName
+      HostedZoneName: !Sub ${HostedZoneName}.
+      Type: AAAA
+      AliasTarget:
+        HostedZoneId: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+        DNSName: !GetAtt ApplicationLoadBalancer.DNSName
+    DependsOn: ApplicationLoadBalancer
+
+  # The health checks can be further tuned if your requirements differ
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub ${NetworkStackName}-VpcID
+      Port:
+        Fn::ImportValue: !Sub ${NetworkStackName}-AppIngressPort
+      Protocol: !Ref AppProtocol
+      Matcher:
+        HttpCode: 200
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckProtocol: !Ref AppProtocol
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: 300
+      TargetType: ip
+      Tags:
+      - Key: Repository
+        Value: !Ref GitSourceRepo
+      - Key: Branch
+        Value: !Ref GitBranch
+      - Key: Stack
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+    DependsOn: ApplicationLoadBalancer
+
+  # The namespace in Amazon CloudWatch Logs - see https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogsConcepts.html
+  DefaultLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /fargate/${AWS::StackName}/${GitSourceRepo}/${GitBranch}/${EnvironmentName}
+      RetentionInDays: !Ref ContainerLogRetentionInDays
+
+  DefaultTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: default-s3-bucket
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: s3:*
+                Resource: !GetAtt DefaultContainerBucket.Arn
+              - Effect: Allow
+                Action: s3:*
+                Resource: !Join ['', [!GetAtt DefaultContainerBucket.Arn, "/*"]]
+              - Effect: Allow
+                Action: s3:*
+                Resource:
+                  Fn::ImportValue:
+                    !Sub ${SFTPStackName}-BucketArn
+              - Effect: Allow
+                Action: s3:*
+                Resource:
+                  Fn::Join:
+                    - ''
+                    - - Fn::ImportValue: !Sub ${SFTPStackName}-BucketArn
+                      - "/*"
+        - PolicyName: datadog-ecs-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - ecs:ListClusters
+                  - ecs:DescribeContainerInstances
+                  - ecs:ListClusters
+                Resource: "*"
+    DependsOn: DefaultContainerBucket
+
+  DefaultTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  DefaultFargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${AWS::StackName}-web
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref DefaultContainerCpu
+      Memory: !Ref DefaultContainerMemory
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt DefaultTaskRole.Arn
+      ExecutionRoleArn: !GetAtt DefaultTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref GitSourceRepo
+          Image: !Ref SeedDockerImage
+          Essential: true
+          PortMappings:
+            - ContainerPort:
+                Fn::ImportValue: !Sub ${NetworkStackName}-AppIngressPort
+          Environment:
+            - Name: BUCKET_NAME
+              Value: !Ref DefaultContainerBucket
+            - Name: SFTP_BUCKET_NAME
+              Value:
+                Fn::ImportValue:
+                  !Sub "${SFTPStackName}-Bucket"
+            - Name: PUBLIC_CLAIM_PDFS_BUCKET_NAME
+              Value:
+                Fn::ImportValue:
+                  !Sub "${SFTPStackName}-PublicClaimPDFsBucket"
+            - Name: RAILS_ENV
+              Value: !Ref EnvironmentName
+            - Name: DATABASE_ENDPOINT
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseURL", "" ]
+            - Name: DATABASE_USER
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseUser", "" ]
+            - Name: DATABASE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabasePasswordArn", "" ], ':SecretString}}' ]]
+            - Name: DATABASE_NAME
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseName", "" ]
+            - Name: HOST
+              Value: !If [ CreateRoute53Record, !Ref LoadBalancerDomainName, !GetAtt ApplicationLoadBalancer.DNSName ]
+            - Name: CORS_ALLOWED_ORIGIN
+              Value: !Ref CORSAllowedOrigin
+            - Name: SECRET_KEY_BASE
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref RailsSecretKeyBase, ':SecretString}}' ]]
+            - Name: DEVISE_JWT_SECRET_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DeviseJWTSecretKey, ':SecretString}}' ]]
+            - Name: SMTP_SERVER_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref SMTPServerPasswordArn, ':SecretString}}' ]]
+            - Name: RAILS_LOG_TO_STDOUT
+              Value: '1'
+            - Name: RAILS_SERVE_STATIC_FILES
+              Value: '1'
+            - Name: AUTORUN_MIGRATIONS
+              Value: '1'
+            - Name: REDIS_ENDPOINT
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RedisStackName}-RedisAddress"
+            - Name: REDIS_PORT
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RedisStackName}-RedisPort"
+            - Name: DEFAULT_MAILER_ADDRESS
+              Value: no-reply@x-claim.com
+            - Name: JWT_EXPIRATION_HOURS
+              Value: !Ref JwtExpirationHours
+            - Name: SENTRY_DSN
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref SentryDsnArn, ':SecretString}}' ]]
+            - Name: XCLAIM_EIN
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref XclaimEinArn, ':SecretString}}' ]]
+            - Name: COURT_DELAWARE_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawareUsername}}' ]]
+            - Name: COURT_DELAWARE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePassword}}' ]]
+            - Name: COURT_DELAWARE_PACER_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePacerUsername}}' ]]
+            - Name: COURT_DELAWARE_PACER_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePacerPassword}}' ]]
+            - Name: COURT_DELAWARE_ENV
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawareEnv}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernUsername}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernPassword}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_ENV
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernEnv}}' ]]
+            - Name: DS_ACCOUNT_ID
+              Value: !Ref DocusignAccountId
+            - Name: DS_AUDIENCE
+              Value: !Ref DocusignAudience
+            - Name: DS_HOST
+              Value: !Ref DocusignHost
+            - Name: DS_INTEGRATION_KEY
+              Value: !Ref DocusignIntegrationKey
+            - Name: DS_IMPERSONATED_USER
+              Value: !Ref DocusignImpersonatedUser
+            - Name: DS_PRIVATE_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DocusignPrivateKeyArn, ':SecretString}}' ]]
+            - Name: ADMIN_ENABLED
+              Value: !Ref AdminEnabled
+            - Name: SUPPORT_EMAIL
+              Value: !Ref SupportEmail
+            - Name: RAILS_MAX_THREADS
+              Value: !Ref RailsMaxThreads
+            - Name: ADMIN_SHARED_EMAIL
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminSharedCredsArn, ':SecretString:adminSharedEmail}}' ]]
+            - Name: ADMIN_SHARED_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminSharedCredsArn, ':SecretString:adminSharedPassword}}' ]]
+
+          LogConfiguration:
+            LogDriver: awsfirelens
+            Options:
+              Name: datadog
+              apiKey: !Join ['', ['{{resolve:secretsmanager:', !Ref DatadogKeyArn, ':SecretString:datadogKey}}' ]]
+              dd_service: !Sub ${AWS::StackName}-web
+              dd_source: web
+              dd_tags: !Sub Environment:${EnvironmentName}
+              TLS: on
+              provider: ecs
+        - Name: datadog-agent
+          Image: datadog/agent:latest
+          Essential: true
+          DockerLabels:
+            docker_environment : !Ref EnvironmentName
+          Environment:
+            - Name: DD_API_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DatadogKeyArn, ':SecretString:datadogKey}}' ]]
+            - Name: ECS_FARGATE
+              Value: true
+            - Name: DD_DOCKER_LABELS_AS_TAGS
+              Value: '{"docker_environment":"environment"}'
+            - Name: DD_APM_ENABLED
+              Value: true
+          PortMappings:
+            - ContainerPort: 8126
+              HostPort: 8126
+              Protocol: tcp
+        - Name: log_router
+          Image: 906394416424.dkr.ecr.us-east-1.amazonaws.com/aws-for-fluent-bit:latest
+          Essential: true
+          FirelensConfiguration:
+            Type: fluentbit
+            Options:
+              enable-ecs-log-metadata: "true"
+              config-file-type: file
+              config-file-value: "/fluent-bit/configs/parse-json.conf"
+    DependsOn:
+      - DefaultContainerBucket
+      - DefaultLogGroup
+      - DefaultTaskExecutionRole
+
+  DefaultFargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref FargateEcsCluster
+      DesiredCount: !Ref DefaultTaskMinContainerCount
+      LaunchType: FARGATE
+      TaskDefinition: !Ref DefaultFargateTaskDefinition
+      LoadBalancers:
+        - ContainerName: !Ref GitSourceRepo
+          ContainerPort:
+            Fn::ImportValue: !Sub ${NetworkStackName}-AppIngressPort
+          TargetGroupArn: !Ref DefaultTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${NetworkStackName}-AppSecurityGroupID
+          Subnets:
+            - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet1ID
+            - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet2ID
+      PlacementStrategies:
+        - Field: attribute:ecs.availability-zone
+          Type: spread
+    DependsOn:
+      - FargateEcsCluster
+      - DefaultFargateTaskDefinition
+      - LoadBalancerHTTPSListener
+      - LoadBalancerHTTPListener
+
+  ServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: service-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: '*'
+
+  DefaultServiceScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref DefaultTaskMinContainerCount
+      MaxCapacity: !Ref DefaultTaskMaxContainerCount
+      ResourceId: !Sub
+        - service/${EcsClusterName}/${EcsDefaultServiceName}
+        - EcsClusterName: !Ref FargateEcsCluster
+          EcsDefaultServiceName: !GetAtt DefaultFargateService.Name
+      RoleARN: !GetAtt ServiceAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    DependsOn:
+      - DefaultFargateService
+      - ServiceAutoScalingRole
+
+  DefaultServiceScaleOutPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ScaleOutPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref DefaultServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+    DependsOn: DefaultServiceScalingTarget
+
+  DefaultServiceScaleInPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ScaleInPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref DefaultServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: -1
+            MetricIntervalUpperBound: 0
+    DependsOn: DefaultServiceScalingTarget
+
+  DefaultServiceScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref DefaultServiceCpuScaleOutThreshold
+      AlarmDescription: Alarm to add capacity if CPU is high
+      Period: 60
+      AlarmActions:
+        - !Ref DefaultServiceScaleOutPolicy
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref FargateEcsCluster
+        - Name: ServiceName
+          Value: !GetAtt DefaultFargateService.Name
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - DefaultFargateService
+      - DefaultServiceScaleOutPolicy
+
+  DefaultServiceScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref DefaultServiceCpuScaleInThreshold
+      AlarmDescription: Alarm to reduce capacity if container CPU is low
+      Period: 300
+      AlarmActions:
+        - !Ref DefaultServiceScaleInPolicy
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref FargateEcsCluster
+        - Name: ServiceName
+          Value: !GetAtt DefaultFargateService.Name
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - DefaultFargateService
+      - DefaultServiceScaleInPolicy
+
+  LoadBalancerHTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref SSLCertificateArn
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref DefaultTargetGroup
+    DependsOn:
+    - DefaultTargetGroup
+    - ApplicationLoadBalancer
+
+  LoadBalancerHTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+      - Type: redirect
+        RedirectConfig:
+          Host: '#{host}'
+          Path: '/#{path}'
+          Port: 443
+          Protocol: HTTPS
+          Query: '#{query}'
+          StatusCode: HTTP_301
+    DependsOn:
+    - DefaultTargetGroup
+    - ApplicationLoadBalancer
+
+  LBLatency:
+    Type: AWS::CloudWatch::Alarm
+    Condition: IsLBAlarmEnabled
+    Properties:
+      AlarmDescription: !Sub LB latency is over ${LoadBalancerLatencySeconds} second(s) for ${LoadBalancerAlarmEvaluationPeriods} period(s) of ${LoadBalancerAlarmEvaluationPeriodSeconds} seconds
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref LoadBalancerAlarmTopic
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Unit: Seconds
+      Statistic: Average
+      EvaluationPeriods: !Ref LoadBalancerAlarmEvaluationPeriods
+      Period: !Ref LoadBalancerAlarmEvaluationPeriodSeconds
+      Threshold: !Ref LoadBalancerLatencySeconds
+      Dimensions:
+      - Name: LoadBalancer
+        Value: !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+    DependsOn: ApplicationLoadBalancer
+
+  LoadBalancerAlarmTopic:
+    Type: AWS::SNS::Topic
+    Condition: IsLBAlarmEnabled
+    Properties:
+      DisplayName: LoadBalancer Alarm Topic
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /fargate/${AWS::StackName}/${GitSourceRepo}/${GitBranch}/${EnvironmentName}-worker
+      RetentionInDays: !Ref ContainerLogRetentionInDays
+
+  WorkerFargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${AWS::StackName}-worker
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref DefaultContainerCpu
+      Memory: !Ref WorkerContainerMemory
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt DefaultTaskRole.Arn
+      ExecutionRoleArn: !GetAtt DefaultTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref GitSourceRepo
+          Image: !Ref SeedDockerImage
+          Command:
+            - "sidekiq"
+            - "-q"
+            - "default"
+            - "-q"
+            - "mailers"
+          Essential: true
+          Environment:
+            - Name: BUCKET_NAME
+              Value: !Ref DefaultContainerBucket
+            - Name: SFTP_BUCKET_NAME
+              Value:
+                Fn::ImportValue:
+                  !Sub "${SFTPStackName}-Bucket"
+            - Name: PUBLIC_CLAIM_PDFS_BUCKET_NAME
+              Value:
+                Fn::ImportValue:
+                  !Sub "${SFTPStackName}-PublicClaimPDFsBucket"
+            - Name: RAILS_ENV
+              Value: !Ref EnvironmentName
+            - Name: DATABASE_ENDPOINT
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseURL", "" ]
+            - Name: DATABASE_USER
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseUser", "" ]
+            - Name: DATABASE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabasePasswordArn", "" ], ':SecretString}}' ]]
+            - Name: DATABASE_NAME
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseName", "" ]
+            - Name: HOST
+              Value: !If [ CreateRoute53Record, !Ref LoadBalancerDomainName, !GetAtt ApplicationLoadBalancer.DNSName ]
+            - Name: CORS_ALLOWED_ORIGIN
+              Value: !Ref CORSAllowedOrigin
+            - Name: SECRET_KEY_BASE
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref RailsSecretKeyBase, ':SecretString}}' ]]
+            - Name: DEVISE_JWT_SECRET_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DeviseJWTSecretKey, ':SecretString}}' ]]
+            - Name: SMTP_SERVER_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref SMTPServerPasswordArn, ':SecretString}}' ]]
+            - Name: RAILS_LOG_TO_STDOUT
+              Value: '1'
+            - Name: RAILS_SERVE_STATIC_FILES
+              Value: '1'
+            - Name: AUTORUN_MIGRATIONS
+              Value: '1'
+            - Name: REDIS_ENDPOINT
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RedisStackName}-RedisAddress"
+            - Name: REDIS_PORT
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RedisStackName}-RedisPort"
+            - Name: DEFAULT_MAILER_ADDRESS
+              Value: no-reply@x-claim.com
+            - Name: JWT_EXPIRATION_HOURS
+              Value: !Ref JwtExpirationHours
+            - Name: SENTRY_DSN
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref SentryDsnArn, ':SecretString}}' ]]
+            - Name: XCLAIM_EIN
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref XclaimEinArn, ':SecretString}}' ]]
+            - Name: COURT_DELAWARE_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawareUsername}}' ]]
+            - Name: COURT_DELAWARE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePassword}}' ]]
+            - Name: COURT_DELAWARE_PACER_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePacerUsername}}' ]]
+            - Name: COURT_DELAWARE_PACER_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePacerPassword}}' ]]
+            - Name: COURT_DELAWARE_ENV
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawareEnv}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernUsername}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernPassword}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_ENV
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernEnv}}' ]]
+            - Name: DS_ACCOUNT_ID
+              Value: !Ref DocusignAccountId
+            - Name: DS_AUDIENCE
+              Value: !Ref DocusignAudience
+            - Name: DS_HOST
+              Value: !Ref DocusignHost
+            - Name: DS_INTEGRATION_KEY
+              Value: !Ref DocusignIntegrationKey
+            - Name: DS_IMPERSONATED_USER
+              Value: !Ref DocusignImpersonatedUser
+            - Name: DS_PRIVATE_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DocusignPrivateKeyArn, ':SecretString}}' ]]
+            - Name: ADMIN_ENABLED
+              Value: !Ref AdminEnabled
+            - Name: SUPPORT_EMAIL
+              Value: !Ref SupportEmail
+            - Name: RAILS_MAX_THREADS
+              Value: !Ref RailsMaxThreads
+            - Name: ADMIN_SHARED_EMAIL
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminSharedCredsArn, ':SecretString:adminSharedEmail}}' ]]
+            - Name: ADMIN_SHARED_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminSharedCredsArn, ':SecretString:adminSharedPassword}}' ]]
+
+          LogConfiguration:
+            LogDriver: awsfirelens
+            Options:
+              Name: datadog
+              apiKey: !Join ['', ['{{resolve:secretsmanager:', !Ref DatadogKeyArn, ':SecretString:datadogKey}}' ]]
+              dd_service: !Sub ${AWS::StackName}-worker
+              dd_source: worker
+              dd_tags: !Sub Environment:${EnvironmentName}
+              TLS: on
+              provider: ecs
+        - Name: datadog-agent
+          Image: datadog/agent:latest
+          Essential: true
+          DockerLabels:
+            docker_environment : !Ref EnvironmentName
+          Environment:
+            - Name: DD_API_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DatadogKeyArn, ':SecretString:datadogKey}}' ]]
+            - Name: ECS_FARGATE
+              Value: true
+            - Name: DD_DOCKER_LABELS_AS_TAGS
+              Value: '{"docker_environment":"environment"}'
+            - Name: DD_APM_ENABLED
+              Value: true
+          PortMappings:
+            - ContainerPort: 8126
+              HostPort: 8126
+              Protocol: tcp
+        - Name: log_router
+          Image: 906394416424.dkr.ecr.us-east-1.amazonaws.com/aws-for-fluent-bit:latest
+          Essential: true
+          FirelensConfiguration:
+            Type: fluentbit
+            Options:
+              enable-ecs-log-metadata: "true"
+              config-file-type: file
+              config-file-value: "/fluent-bit/configs/parse-json.conf"
+    DependsOn:
+      - DefaultContainerBucket
+      - WorkerLogGroup
+      - DefaultTaskExecutionRole
+
+  WorkerFargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref FargateEcsCluster
+      DesiredCount: !Ref WorkerTaskMinContainerCount
+      LaunchType: FARGATE
+      TaskDefinition: !Ref WorkerFargateTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${NetworkStackName}-AppInternalSecurityGroupID
+          Subnets:
+            - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet1ID
+            - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet2ID
+      PlacementStrategies:
+        - Field: attribute:ecs.availability-zone
+          Type: spread
+    DependsOn:
+      - FargateEcsCluster
+      - WorkerFargateTaskDefinition
+      - LoadBalancerHTTPSListener
+      - LoadBalancerHTTPListener
+
+  WorkerServiceScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref WorkerTaskMinContainerCount
+      MaxCapacity: !Ref WorkerTaskMaxContainerCount
+      ResourceId: !Sub
+        - service/${EcsClusterName}/${EcsWorkerServiceName}
+        - EcsClusterName: !Ref FargateEcsCluster
+          EcsWorkerServiceName: !GetAtt WorkerFargateService.Name
+      RoleARN: !GetAtt ServiceAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    DependsOn:
+      - WorkerFargateService
+      - ServiceAutoScalingRole
+  
+  WorkerServiceScaleOutPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: WorkerScaleOutPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref WorkerServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+    DependsOn: WorkerServiceScalingTarget
+  
+  WorkerServiceScaleInPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: WorkerScaleInPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref WorkerServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: -1
+            MetricIntervalUpperBound: 0
+    DependsOn: WorkerServiceScalingTarget
+  
+  WorkerServiceScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: !Ref WorkerServiceScaleEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref WorkerServiceCpuScaleOutThreshold
+      AlarmDescription: Alarm to add capacity if CPU is high
+      Period: 60
+      AlarmActions:
+        - !Ref WorkerServiceScaleOutPolicy
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref FargateEcsCluster
+        - Name: ServiceName
+          Value: !GetAtt WorkerFargateService.Name
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - WorkerFargateService
+      - WorkerServiceScaleOutPolicy
+
+  WorkerServiceScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: !Ref WorkerServiceScaleEvaluationPeriods
+      Statistic: Average
+      TreatMissingData: notBreaching
+      Threshold: !Ref WorkerServiceCpuScaleInThreshold
+      AlarmDescription: Alarm to reduce capacity if container CPU is low
+      Period: 300
+      AlarmActions:
+        - !Ref WorkerServiceScaleInPolicy
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref FargateEcsCluster
+        - Name: ServiceName
+          Value: !GetAtt WorkerFargateService.Name
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+    DependsOn:
+      - WorkerFargateService
+      - WorkerServiceScaleInPolicy
+
+  SchedulerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /fargate/${AWS::StackName}/${GitSourceRepo}/${GitBranch}/${EnvironmentName}-scheduler
+      RetentionInDays: !Ref ContainerLogRetentionInDays
+
+  SchedulerFargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${AWS::StackName}-scheduler
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref DefaultContainerCpu
+      Memory: !Ref DefaultContainerMemory
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt DefaultTaskRole.Arn
+      ExecutionRoleArn: !GetAtt DefaultTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref GitSourceRepo
+          Image: !Ref SeedDockerImage
+          Command:
+            - "clockwork"
+            - "clock.rb"
+          Essential: true
+          Environment:
+            - Name: BUCKET_NAME
+              Value: !Ref DefaultContainerBucket
+            - Name: SFTP_BUCKET_NAME
+              Value:
+                Fn::ImportValue:
+                  !Sub "${SFTPStackName}-Bucket"
+            - Name: PUBLIC_CLAIM_PDFS_BUCKET_NAME
+              Value:
+                Fn::ImportValue:
+                  !Sub "${SFTPStackName}-PublicClaimPDFsBucket"
+            - Name: RAILS_ENV
+              Value: !Ref EnvironmentName
+            - Name: DATABASE_ENDPOINT
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseURL", "" ]
+            - Name: DATABASE_USER
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseUser", "" ]
+            - Name: DATABASE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabasePasswordArn", "" ], ':SecretString}}' ]]
+            - Name: DATABASE_NAME
+              Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseName", "" ]
+            - Name: HOST
+              Value: !If [ CreateRoute53Record, !Ref LoadBalancerDomainName, !GetAtt ApplicationLoadBalancer.DNSName ]
+            - Name: CORS_ALLOWED_ORIGIN
+              Value: !Ref CORSAllowedOrigin
+            - Name: SECRET_KEY_BASE
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref RailsSecretKeyBase, ':SecretString}}' ]]
+            - Name: DEVISE_JWT_SECRET_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DeviseJWTSecretKey, ':SecretString}}' ]]
+            - Name: SMTP_SERVER_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref SMTPServerPasswordArn, ':SecretString}}' ]]
+            - Name: RAILS_LOG_TO_STDOUT
+              Value: '1'
+            - Name: RAILS_SERVE_STATIC_FILES
+              Value: '1'
+            - Name: AUTORUN_MIGRATIONS
+              Value: '1'
+            - Name: REDIS_ENDPOINT
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RedisStackName}-RedisAddress"
+            - Name: REDIS_PORT
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RedisStackName}-RedisPort"
+            - Name: DEFAULT_MAILER_ADDRESS
+              Value: no-reply@x-claim.com
+            - Name: JWT_EXPIRATION_HOURS
+              Value: !Ref JwtExpirationHours
+            - Name: SENTRY_DSN
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref SentryDsnArn, ':SecretString}}' ]]
+            - Name: XCLAIM_EIN
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref XclaimEinArn, ':SecretString}}' ]]
+            - Name: COURT_DELAWARE_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawareUsername}}' ]]
+            - Name: COURT_DELAWARE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePassword}}' ]]
+            - Name: COURT_DELAWARE_PACER_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePacerUsername}}' ]]
+            - Name: COURT_DELAWARE_PACER_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawarePacerPassword}}' ]]
+            - Name: COURT_DELAWARE_ENV
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:delawareEnv}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_USERNAME
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernUsername}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernPassword}}' ]]
+            - Name: COURT_NEW_YORK_SOUTHERN_ENV
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref CourtCredentialsArn, ':SecretString:newYorkSouthernEnv}}' ]]
+            - Name: DS_ACCOUNT_ID
+              Value: !Ref DocusignAccountId
+            - Name: DS_AUDIENCE
+              Value: !Ref DocusignAudience
+            - Name: DS_HOST
+              Value: !Ref DocusignHost
+            - Name: DS_INTEGRATION_KEY
+              Value: !Ref DocusignIntegrationKey
+            - Name: DS_IMPERSONATED_USER
+              Value: !Ref DocusignImpersonatedUser
+            - Name: DS_PRIVATE_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DocusignPrivateKeyArn, ':SecretString}}' ]]
+            - Name: ADMIN_ENABLED
+              Value: !Ref AdminEnabled
+            - Name: SUPPORT_EMAIL
+              Value: !Ref SupportEmail
+            - Name: RAILS_MAX_THREADS
+              Value: !Ref RailsMaxThreads
+            - Name: ADMIN_SHARED_EMAIL
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminSharedCredsArn, ':SecretString:adminSharedEmail}}' ]]
+            - Name: ADMIN_SHARED_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminSharedCredsArn, ':SecretString:adminSharedPassword}}' ]]
+
+          LogConfiguration:
+            LogDriver: awsfirelens
+            Options:
+              Name: datadog
+              apiKey: !Join ['', ['{{resolve:secretsmanager:', !Ref DatadogKeyArn, ':SecretString:datadogKey}}' ]]
+              dd_service: !Sub ${AWS::StackName}-scheduler
+              dd_source: scheduler
+              dd_tags: !Sub Environment:${EnvironmentName}
+              TLS: on
+              provider: ecs
+        - Name: datadog-agent
+          Image: datadog/agent:latest
+          Essential: true
+          DockerLabels:
+            docker_environment : !Ref EnvironmentName
+          Environment:
+            - Name: DD_API_KEY
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref DatadogKeyArn, ':SecretString:datadogKey}}' ]]
+            - Name: ECS_FARGATE
+              Value: true
+            - Name: DD_DOCKER_LABELS_AS_TAGS
+              Value: '{"docker_environment":"environment"}'
+            - Name: DD_APM_ENABLED
+              Value: true
+          PortMappings:
+            - ContainerPort: 8126
+              HostPort: 8126
+              Protocol: tcp
+        - Name: log_router
+          Image: 906394416424.dkr.ecr.us-east-1.amazonaws.com/aws-for-fluent-bit:latest
+          Essential: true
+          FirelensConfiguration:
+            Type: fluentbit
+            Options:
+              enable-ecs-log-metadata: "true"
+              config-file-type: file
+              config-file-value: "/fluent-bit/configs/parse-json.conf"
+    DependsOn:
+      - DefaultContainerBucket
+      - SchedulerLogGroup
+      - DefaultTaskExecutionRole
+
+  SchedulerFargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref FargateEcsCluster
+      DesiredCount: !Ref SchedulerTaskMinContainerCount
+      LaunchType: FARGATE
+      TaskDefinition: !Ref SchedulerFargateTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${NetworkStackName}-AppInternalSecurityGroupID
+          Subnets:
+            - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet1ID
+            - Fn::ImportValue: !Sub ${NetworkStackName}-PrivateSubnet2ID
+      PlacementStrategies:
+        - Field: attribute:ecs.availability-zone
+          Type: spread
+    DependsOn:
+      - FargateEcsCluster
+      - SchedulerFargateTaskDefinition
+      - LoadBalancerHTTPSListener
+      - LoadBalancerHTTPListener
+
+Outputs:
+
+  Name:
+    Description: Fargate Stack Name
+    Value: !Ref AWS::StackName
+    Export:
+      Name: !Sub ${AWS::StackName}-Name
+
+  EnvironmentName:
+    Description: Environment Name
+    Value: !Ref EnvironmentName
+    Export:
+      Name: !Sub ${AWS::StackName}-EnvironmentName
+
+  EcrDockerRepositoryName:
+    Value: !Ref EcrDockerRepository
+    Export:
+      Name: !Sub ${AWS::StackName}-EcrDockerRepositoryName
+
+  EcrDockerRepositoryArn:
+    Value: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${EcrDockerRepository}
+    Export:
+      Name: !Sub ${AWS::StackName}-EcrDockerRepositoryArn
+
+  EcrDockerRepositoryUri:
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrDockerRepository}
+    Export:
+      Name: !Sub ${AWS::StackName}-EcrDockerRepositoryUri
+
+  FargateEcsClusterName:
+    Value: !Ref FargateEcsCluster
+    Export:
+      Name: !Sub ${AWS::StackName}-FargateEcsClusterName
+
+  FargateEcsClusterArn:
+    Value: !GetAtt FargateEcsCluster.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-FargateEcsClusterArn
+
+  DefaultFargateServiceArn:
+    Value: !Ref DefaultFargateService
+    Export:
+      Name: !Sub ${AWS::StackName}-DefaultFargateServiceArn
+
+  DefaultFargateServiceName:
+    Value: !GetAtt DefaultFargateService.Name
+    Export:
+      Name: !Sub ${AWS::StackName}-DefaultFargateServiceName
+
+  ApplicationLoadBalancerArn:
+    Value: !Ref ApplicationLoadBalancer
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerArn
+
+  ApplicationLoadBalancerDnsName:
+    Value: !If [ CreateRoute53Record, !Ref LoadBalancerDomainName, !GetAtt ApplicationLoadBalancer.DNSName ]
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerDnsName
+
+  ApplicationLoadBalancerBaseDnsName:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerBaseDnsName
+
+  ApplicationLoadBalancerCanonicalHostedZoneId:
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerCanonicalHostedZoneId
+
+  ApplicationLoadBalancerName:
+    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerName
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerName
+
+  ApplicationLoadBalancerHTTPSListenerArn:
+    Value: !Ref LoadBalancerHTTPSListener
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerHTTPSListenerArn
+
+  ApplicationLoadBalancerHTTPListenerArn:
+    Value: !Ref LoadBalancerHTTPListener
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerHTTPListenerArn
+
+  LoadBalancerAlarmTopicArn:
+    Description: LoadBalancer Alarm Topic ARN
+    Value: !Ref LoadBalancerAlarmTopic
+    Condition: IsLBAlarmEnabled
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerAlarmTopicArn
+
+  LoadBalancerAlarmTopicName:
+    Description: LoadBalancer Alarm Topic Name
+    Value: !GetAtt LoadBalancerAlarmTopic.TopicName
+    Condition: IsLBAlarmEnabled
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerAlarmTopicName
+
+  CodePipelineArtifactBucketName:
+    Value: !Ref CodePipelineArtifactBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-CodePipelineArtifactBucket
+
+  CodePipelineArtifactBucketArn:
+    Value: !GetAtt CodePipelineArtifactBucket.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CodePipelineArtifactBucketArn

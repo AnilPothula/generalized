@@ -1,0 +1,56 @@
+- Name: BUCKET_NAME
+  Value: !Ref DefaultContainerBucket
+- Name: SFTP_BUCKET_NAME
+  Value:
+    Fn::ImportValue:
+      !Sub "${SFTPStackName}-Bucket"
+- Name: PUBLIC_CLAIM_PDFS_BUCKET_NAME
+  Value:
+    Fn::ImportValue:
+      !Sub "${SFTPStackName}-PublicClaimPDFsBucket"
+- Name: RAILS_ENV
+  Value: !Ref EnvironmentName
+- Name: DATABASE_ENDPOINT
+  Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseURL", "" ]
+- Name: DATABASE_USER
+  Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseUser", "" ]
+- Name: DATABASE_NAME
+  Value: !If [ IsDbStackSet, "Fn::ImportValue": !Sub "${DatabaseStackName}-DatabaseName", "" ]
+- Name: HOST
+  Value: !If [ CreateRoute53Record, !Ref LoadBalancerDomainName, !GetAtt ApplicationLoadBalancer.DNSName ]
+- Name: CORS_ALLOWED_ORIGIN
+  Value: !Ref CORSAllowedOrigin
+- Name: RAILS_LOG_TO_STDOUT
+  Value: '1'
+- Name: RAILS_SERVE_STATIC_FILES
+  Value: '1'
+- Name: AUTORUN_MIGRATIONS
+  Value: '1'
+- Name: REDIS_ENDPOINT
+  Value:
+    Fn::ImportValue:
+      !Sub "${RedisStackName}-RedisAddress"
+- Name: REDIS_PORT
+  Value:
+    Fn::ImportValue:
+      !Sub "${RedisStackName}-RedisPort"
+- Name: DEFAULT_MAILER_ADDRESS
+  Value: no-reply@x-claim.com
+- Name: JWT_EXPIRATION_HOURS
+  Value: !Ref JwtExpirationHours
+- Name: DS_ACCOUNT_ID
+  Value: !Ref DocusignAccountId
+- Name: DS_AUDIENCE
+  Value: !Ref DocusignAudience
+- Name: DS_HOST
+  Value: !Ref DocusignHost
+- Name: DS_INTEGRATION_KEY
+  Value: !Ref DocusignIntegrationKey
+- Name: DS_IMPERSONATED_USER
+  Value: !Ref DocusignImpersonatedUser
+- Name: ADMIN_ENABLED
+  Value: !Ref AdminEnabled
+- Name: SUPPORT_EMAIL
+  Value: !Ref SupportEmail
+- Name: RAILS_MAX_THREADS
+  Value: !Ref RailsMaxThreads

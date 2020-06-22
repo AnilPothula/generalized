@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+ export ROOT_DIR=`dirname "$(perl -e 'use Cwd "abs_path"; print abs_path(shift)' $0)"`
+CLI_ENTRYPOINT=`basename $0`
+
+ . "$ROOT_DIR/utils"
+
+ usage () {
+  cat <<- HELP_USAGE
+ 	  usage: $(basename $0) (create|update) [options]
+ 	    -e | --environment  The environment for the Stack [ dev, staging, production, demo, mgmt ]
+	HELP_USAGE
+}
+
+ # ##################################  CLI  ##################################
+
+ echo ""
+
+ # Get command
+command="$1"
+if [[ "$command" == "" ]]; then
+	usage
+	exit 1
+fi;
+if ! [[ "$command" =~ ^-- ]]; then
+	shift
+fi;
+
+ # Default parameters
+ENV=dev
+STACK_FILE=vpc
+
+ # Get parameters
+while [ "$1" != "" ]; do case $1 in
+	-e | --environment )
+		shift
+		ENV="$1"
+		;;
+	-s | --stack )
+		shift
+		STACK_FILE="$1"
+		;;
+	-h | --help )
+		usage
+		exit
+		;;
+	* )
+		>&2 echo -e "${COLOR_RED}Invalid parameter '$1'${COLOR_NORMAL}"
+		usage
+		exit 1
+esac; shift; done
+
+ # Validate parameters
+if ! [[ "$ENV" =~ ^(dev|staging|production|demo|mgmt)$ ]]; then
+	>&2 echo -e "${COLOR_RED}Invalid environment $ENV${COLOR_NORMAL}"
+	echo ""
+	usage
+	exit 1
+fi; shift
+
+
+ print_info () {
+	echo -e "${COLOR_CYAN}Stack: ${COLOR_BLUE}api-$STACK_FILE-$ENV${COLOR_CYAN}; Environment: ${COLOR_BLUE}$ENV${COLOR_CYAN}"
+}
+
+ case $command in
+	create )
+		print_info
+		aws cloudformation create-stack \
+			--stack-name api-$STACK_FILE-$ENV \
+			--template-body "file://build/$STACK_FILE.yml" \
+			--parameters="file://parameters/$ENV/$STACK_FILE.json" \
+			--capabilities CAPABILITY_NAMED_IAM
+		;;
+	update )
+		print_info
+		aws cloudformation update-stack \
+			--stack-name $STACK_NAME-$ENV \
+			--template-body "file://build/$STACK_FILE.yml" \
+			--parameters="file://parameters/$ENV/$STACK_FILE.json" \
+			--capabilities CAPABILITY_NAMED_IAM
+		;;
+	info )
+		print_info
+		;;
+	help )
+		usage
+		;;
+	* )
+		>&2 echo -e "${COLOR_RED}Invalid commands '$command'${COLOR_NORMAL}"
+		echo ""
+		usage
+		exit 1
+esac

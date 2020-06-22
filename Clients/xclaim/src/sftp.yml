@@ -1,0 +1,384 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: SFTP for Claims Agent flat file integration
+
+Parameters:
+  Identifier:
+    Default: xclaim-id
+    Description: Identifier for all the infrastructure.
+    Type: String
+  
+  OwnerName:
+    Default: xclaim
+    Description: Owner of the infrastructure
+    Type: String
+
+  DonlinS3UserArn:
+    Type: String
+    Description: ARN to S3 IAM user in Donlin's AWS Account
+    MinLength: 0
+    MaxLength: 2048
+    Default: ""
+  
+  EnvironmentName:
+    Description: Environment name
+    Type: String
+    Default: staging
+    AllowedValues:
+      - dev_master
+      - staging
+      - production
+      - demo
+
+Resources:
+  Server:
+    Type: AWS::Transfer::Server
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-Server
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+  PublicClaimPDFsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-PublicClaimPDFsBucket
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-Bucket
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Resource: !Join ['', ['arn:aws:s3:::', !Ref Bucket]]
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+            Principal:
+              AWS: !Ref DonlinS3UserArn
+          - Resource: !Join ['', ['arn:aws:s3:::', !Ref Bucket]]
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - "donlin/*"
+            Principal:
+              AWS: !Ref DonlinS3UserArn
+          - Resource: !Join ['', ['arn:aws:s3:::', !Ref Bucket, '/donlin/*']]
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObjectVersion
+              - s3:DeleteObject
+              - s3:GetObjectVersion
+              - s3:PutObjectAcl
+            Principal:
+              AWS: !Ref DonlinS3UserArn
+
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: transfer.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: !Join ['', ['arn:aws:s3:::', !Ref Bucket]]
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+              - Resource: !Join ['', ['arn:aws:s3:::', !Ref Bucket, '/*']]
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteObject
+                  - s3:GetObjectVersion
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-Role
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+  UserNick:
+    Type: AWS::Transfer::User
+    Properties:
+      UserName: nick
+      HomeDirectory: !Sub "/${Bucket}/nick"
+      SshPublicKeys:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC3dq/mjlk/SbdrwhuhYtzyvaHx/okJQYcsMHwQ/6Gv4/tdg3e/UhrQUMiBcx38oTZaB9sgxuHsyBlfHJmkHfKQqFqTaWPj3vpl0xqqEBkjcnuyMagv3yzMJ3G95/Dajga83pqW3ZyMog9jBYlDbdXIWfigefk+L1NXhzq6EQFEA4hj2+RJW4IJWe+FDCKLHikXjnVzR/L1aMntwS0TFhdlW3m7NEsuSOLkzIckMeXrvdWTF+pVkvuSCCHN2q+AjtLWOqF19TGhq9fIkiUM4X4N+e1j1zIQk8kULRuH8i/jPBp7STW3zKaM9AyqdUCu+W2YqTE3efzqDGPU7ZnUHWBdhwu3FkwcN32BD5HyjrbfvrQngBjAscdWTPxYv/Zrx+8n5VnOnBr31MxXWIf7Mk4nqjvURQDrLO3mZq5z3EvesvrGAugtMH/T84QykvFo2vLFEjX+cQSZsSnpNDuHd8M17Clo5a5udzunBMaZo+MZI8MLJ/8/myPe7F5cNQ2biEPt9vbUCKd528w3wrvhbb3mBoLNvVB8Dey5cD+oJS95LFHHXSyd9CodNWdWAve2AaBLbrS4FLkIIw7eFQ9Y68A/X+CSyOsdi5pDRPmmstZPkvkOr5ERUCk+11LL0n24j/yTdGdq/+itNLQGygU7ucgUcKEcla6M23p0lFftkOqwyw== nick@philosophie.is"
+      Role: !GetAtt Role.Arn
+      ServerId: !GetAtt Server.ServerId
+      Policy: >
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowListingOfUserFolder",
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": "arn:aws:s3:::${transfer:HomeBucket}",
+              "Condition": {
+                "StringLike": {
+                  "s3:prefix": [
+                    "${transfer:HomeFolder}/*",
+                    "${transfer:HomeFolder}"
+                  ]
+                }
+              }
+            },
+            {
+              "Sid": "HomeDirObjectAccess",
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:GetObjectVersion",
+                "s3:DeleteObject",
+                "s3:DeleteObjectVersion"
+              ],
+              "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
+            }
+          ]
+        }
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-UserNick
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+  UserOmni:
+    Type: AWS::Transfer::User
+    Properties:
+      UserName: omni
+      HomeDirectory: !Sub "/${Bucket}/omni"
+      SshPublicKeys:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAn/EjlKvshVDAC76JmXoKcOsk3owULJeE9N9a6YFxxf6vvkAoYUo7CMCirvNV8YtJPhLfoo/zigMTQXAGRy+ly3/V3vTxMu3EYIlI0mb/IhdJhF0xmL/z6JhUfX5z2oKO+xq+30fnQ8RbK9z9hFt48rUWs9f/pXaE+sl0glQkZdNlz9VRUof4bEWIIobmIhkVT8JVg12Dp1U6lT+3TdYtlJOZFRjRB409RCrqKHif3KLyurJkU1FLhH1fJGYvJZShOtGkI3FAcnE76voM+/dY4NGhvRxwe/cpYgjWdQE/Y4yw2UMxIsIcGhYeNdGr2pxhIkViSezoieOnwPPYHqGviQ=="
+      Role: !GetAtt Role.Arn
+      ServerId: !GetAtt Server.ServerId
+      Policy: >
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowListingOfUserFolder",
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": "arn:aws:s3:::${transfer:HomeBucket}",
+              "Condition": {
+                "StringLike": {
+                  "s3:prefix": [
+                    "${transfer:HomeFolder}/*",
+                    "${transfer:HomeFolder}"
+                  ]
+                }
+              }
+            },
+            {
+              "Sid": "HomeDirObjectAccess",
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:GetObjectVersion",
+                "s3:DeleteObject",
+                "s3:DeleteObjectVersion"
+              ],
+              "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
+            }
+          ]
+        }
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-UserOmni
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+  UserEpiq:
+    Type: AWS::Transfer::User
+    Properties:
+      UserName: epiq
+      HomeDirectory: !Sub "/${Bucket}/epiq"
+      SshPublicKeys:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC4X9KNG4RpdOGPxKqigeVZzQo7n/Wh4iKL1xBOEwcYrK30/ckSCi5RiIObehsjjA9y/yQxCOR53m2UfhFqo0PaNllOry53H+LJN3ShDZm6X/GdTZvH61JXtwAli0HIXBSm+SRVQ8ma+YsEa02JNj1PW6G9b7cX/TvColRTFCiiK3KV6rbhD7EIqhEzUb1ZHsOmtdmsxchLebde9SGdVfFZmg8EI89JPFZt4yzCts3OakRlCRxJ8VphQD6/ldK1/q1aigqCvAGpr2iNKO2YU2+CLfoEcwdsID4pgqMUBpOtpW5b3bmq1yaeWDWMIcTLFjONjUobizPBtYz82kJV2qa9 mike.mooneyham@epiqglobal.com"
+      Role: !GetAtt Role.Arn
+      ServerId: !GetAtt Server.ServerId
+      Policy: >
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowListingOfUserFolder",
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": "arn:aws:s3:::${transfer:HomeBucket}",
+              "Condition": {
+                "StringLike": {
+                  "s3:prefix": [
+                    "${transfer:HomeFolder}/*",
+                    "${transfer:HomeFolder}"
+                  ]
+                }
+              }
+            },
+            {
+              "Sid": "HomeDirObjectAccess",
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:GetObjectVersion",
+                "s3:DeleteObject",
+                "s3:DeleteObjectVersion"
+              ],
+              "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
+            }
+          ]
+        }
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-UserEpiq
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+  UserBMC:
+    Type: AWS::Transfer::User
+    Properties:
+      UserName: bmc
+      HomeDirectory: !Sub "/${Bucket}/bmc"
+      SshPublicKeys:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAh9qu/Vpchi8dRo53XVxKgD4h6iNkux/8JzPBcNE0+uzuZYuMTLo3V4V7yDAPTqxNhqwr4C3Mdtv/bbgxEDtQ5zFzItzQgHWXgDTH+uO056fPXWH6myuRCNdvtO/tyfLSa/pUieTHEikQ/+KZnCv0kI/QqOE+GXDGrJpLZSEliCTO3CYvwhUGfuX90Ap1YEPTmVKTB+RfFGgs6TVi9Feez40ZIRaPbj+7ICAVVtL1ako7VJpXa8S98Kyl8+XgR1vSQ6KbcB3bkDrCoDQ6U/U5mb8DiFNHZJV8NbN34vrh+DBVzTinngS+NDR7V568gzLF9NhPZJ7bQrEswjedHgK1Gw=="
+      Role: !GetAtt Role.Arn
+      ServerId: !GetAtt Server.ServerId
+      Policy: >
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowListingOfUserFolder",
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": "arn:aws:s3:::${transfer:HomeBucket}",
+              "Condition": {
+                "StringLike": {
+                  "s3:prefix": [
+                    "${transfer:HomeFolder}/*",
+                    "${transfer:HomeFolder}"
+                  ]
+                }
+              }
+            },
+            {
+              "Sid": "HomeDirObjectAccess",
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:GetObjectVersion",
+                "s3:DeleteObject",
+                "s3:DeleteObjectVersion"
+              ],
+              "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
+            }
+          ]
+        }
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${EnvironmentName}-UserBMC
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: StackName
+        Value: !Ref AWS::StackName
+      - Key: Environment
+        Value: !Ref EnvironmentName
+
+Outputs:
+  Name:
+    Description: Sftp Stack name
+    Value: !Ref AWS::StackName
+    Export:
+      Name: !Sub ${AWS::StackName}-Name
+
+  Bucket:
+    Description: S3 bucket where files will be stored
+    Value: !Ref Bucket
+    Export:
+      Name: !Sub ${AWS::StackName}-Bucket
+
+  PublicClaimPDFsBucket:
+    Description: S3 bucket where claim pdfs are hosted for public view
+    Value: !Ref PublicClaimPDFsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicClaimPDFsBucket
+
+  BucketArn:
+    Description: S3 bucket where files will be stored (ARN)
+    Value: !GetAtt Bucket.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-BucketArn
+
+  PublicClaimPDFsBucketArn:
+    Description: S3 bucket where claim pdfs are hosted for public view (ARN)
+    Value: !GetAtt Bucket.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicClaimPDFsBucketArn
