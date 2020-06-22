@@ -1,32 +1,21 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: SASKV5N VPC
+Description: Management VPC
 
-# This VPC stack should be created first before any other
-# CloudFormation stacks, such as a bastion stack, database
-# stack and application stack
 Parameters:
   Identifier:
-    Default: xclaim-id
     Description: Identifier for all the infrastructure.
     Type: String
 
   OwnerName:
-    Default: xclaim
     Description: Owner of the infrastructure
     Type: String
 
   EnvironmentName:
     Description: Environment name
     Type: String
-    Default: staging
-    AllowedValues:
-      - dev_master
-      - staging
-      - production
-      - demo
-      - mgmt
+    Default: Management
 
   AvailabilityZone1:
     Description: The first availability zone in the region
@@ -41,35 +30,35 @@ Parameters:
   VPCCIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: Must be a valid IP range in x.x.x.x/x notation
-    Default: 10.50.0.0/16
+    Default: 10.10.0.0/16
     Description: CIDR Block for the VPC
     Type: String
 
   PrivateSubnet1CIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: Must be a valid IP range in x.x.x.x/x notation
-    Default: 10.50.64.0/19
+    Default: 10.10.1.0/24
     Description: CIDR block for private subnet 1 located in Availability Zone 1
     Type: String
 
   PrivateSubnet2CIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: Must be a valid IP range in x.x.x.x/x notation
-    Default: 10.50.96.0/19
+    Default: 10.10.2.0/24
     Description: CIDR block for private subnet 2 located in Availability Zone 2
     Type: String
 
   PublicSubnet1CIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: Must be a valid IP range in x.x.x.x/x notation
-    Default: 10.50.0.0/24
+    Default: 10.10.3.0/24
     Description: CIDR Block for the public DMZ subnet 1 located in Availability Zone 1
     Type: String
 
   PublicSubnet2CIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: Must be a valid IP range in x.x.x.x/x notation
-    Default: 10.50.1.0/24
+    Default: 10.10.4.0/24
     Description: CIDR Block for the public DMZ subnet 2 located in Availability Zone 2
     Type: String
 
