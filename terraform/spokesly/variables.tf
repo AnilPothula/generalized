@@ -21,14 +21,14 @@ variable "tags" {
 
 variable "master_instance" {
   default = {
-    type  = "t2.small"
+    type  = "t1.micro"
     count = 1
   }
 }
 
 variable "data_instance" {
   default = {
-    type  = "t2.small"
+    type  = "t1.micro"
     count = 1
   }
 }
