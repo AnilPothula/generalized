@@ -1,0 +1,45 @@
+resource "aws_key_pair" "main" {
+  key_name_prefix   = terraform.workspace == "default" ? "insecure.${var.name}.${terraform.workspace}." : "${var.name}.${terraform.workspace}."
+  public_key        = terraform.workspace == "default" ? file("ssh_keys/insecure.pub") : file("ssh_keys/${terraform.workspace}.pub")
+}
+
+# module "vpc" {
+#   source                 = "./modules/terraform-aws-vpc"
+#   cidr                   = var.vpc_cidr
+#   name                   = "${var.name}.${terraform.workspace}"
+#   nat_per_az             = false
+#   separate_db_subnets    = false
+#   subnet_outer_offsets   = [ 4, 2 ]
+#   subnet_inner_offsets   = [ 2, 2 ]
+#   transit_gateway_attach = false
+#   allow_cidrs_default    = {}
+
+#   tags = merge({
+#     "Name"        = "${var.name}.${terraform.workspace}"
+#     "Environment" = terraform.workspace
+#   }, var.tags)
+
+#   public_subnet_tags = merge({
+#     "Name"        = "public.${var.name}.${terraform.workspace}"
+#     "Environment" = terraform.workspace
+#   }, var.tags)
+
+#   private_subnet_tags = merge({
+#     "Name"        = "private.${var.name}.${terraform.workspace}"
+#     "Environment" = terraform.workspace
+#   }, var.tags)
+# }
+
+module "opsworks_stack" {
+  source          = "./modules/terraform-aws-opsworks-stack"
+  name            = "${var.name}.${terraform.workspace}"
+  ssh_key_name    = aws_key_pair.main.key_name
+  vpc_id          = "${var.vpc_id}"
+  private_subnets = var.private_subnets
+  public_subnets  = var.public_subnets
+  custom_json     = <<EOF
+{
+  "environment": "${terraform.workspace}"
+}
+EOF
+}
