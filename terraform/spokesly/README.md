@@ -52,7 +52,7 @@ $ choco install terraform
 
 After running this, you must run ``` $ terraform -help ``` to check if the installation was successful.
 
-# Elasticsearch Infrastructure with Terraform
+# Opswork Infrastructure with Terraform
 ## Cool diagram:
 
 <p align="center">
@@ -62,35 +62,42 @@ After running this, you must run ``` $ terraform -help ``` to check if the insta
 ## Files Structure
 ```
 .
-+-- README.md
-+-- terraform.tf
-+-- variables.tf
-+-- outputs.tf
-+-- main.tf
-+-- security_groups.tf
-+-- loadba_lancer.tf
-+-- layers.tf
-+-- instances.tf
-+-- outputs/
-|   +-- 
-|   +-- 
-+-- 
-|   +-- 
-|   +-- 
-+-- 
-|   
-|   
-+-- 
-|   +-- 
-|   +-- 
-+-- 
-|   +-- 
-+-- 
-+-- 
+|
++-- README.md                                   <-- Readme file
++-- terraform.tf                                <-- Global configuration for the project
++-- variables.tf                                <-- Variables that we need for the resources
++-- outputs.tf                                  <-- Outputs for some resources
++-- main.tf                                     <-- Deploys 2 modules, opswork and vpc. located on ./modules/
++-- security_groups.tf                          <-- Deploys the security group.
++-- load_balancer.tf                            <-- Deploys the loadbalancer
++-- layers.tf                                   <-- Deploys 2 layers, one for master and the oetherone for nodes
++-- instances.tf                                <-- Deploys the opswork instances.
++-- ssh_leys/
+    |   +-- insecure.pem
+    |   +-- insecure.pub
+    |
++-- modules/
+    |   +-- terraform-aws-opsworks-stack/
+        |   +-- data.tf
+        |   +-- iam.tf
+        |   +-- main.tf
+        |   +-- outputs.tf
+        |   +-- variables.tf
+        |
+    |   +-- terraform-aws-vpc
+        |   +-- data.tf
+        |   +-- database_subnets.tf
+        |   +-- main.tf
+        |   +-- outputs.tf
+        |   +-- private_subnets.tf
+        |   +-- public_subnets.tf
+        |   +-- transit_gateway.tf
+        |   +-- variables.tf 
 ```
+
 ## How yo deploy this template:
 
-First of all you must set on AWS Credentials on the system:
+First of all you must set on AWS Credentials on your system:
 ``` bash
 $ export AWS_ACCESS_KEY_ID="AWS_ACCESS_KEY_ID"
 $ export AWS_SECRET_ACCESS_KEY="AWS_SECRET_ACCESS_KEY"
