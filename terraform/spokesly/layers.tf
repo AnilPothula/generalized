@@ -3,12 +3,13 @@ resource "aws_opsworks_custom_layer" "master" {
   short_name                  = "master"
   stack_id                    = module.opsworks_stack.id
   auto_assign_elastic_ips     = false
-  auto_assign_public_ips      = false
+  auto_assign_public_ips      = true
   custom_instance_profile_arn = module.opsworks_stack.instance_profile_arn
   custom_security_group_ids   = list(aws_security_group.main.id)
   auto_healing                = true
   install_updates_on_boot     = false
   use_ebs_optimized_instances = true
+  elastic_load_balancer       = aws_elb.elb.id
 
   custom_setup_recipes        = [ "elasticsearch::setup" ]
   custom_configure_recipes    = [ "elasticsearch::configure" ]
@@ -22,7 +23,7 @@ resource "aws_opsworks_custom_layer" "data" {
   short_name                  = "data"
   stack_id                    = module.opsworks_stack.id
   auto_assign_elastic_ips     = false
-  auto_assign_public_ips      = false
+  auto_assign_public_ips      = true
   custom_instance_profile_arn = module.opsworks_stack.instance_profile_arn
   custom_security_group_ids   = list(aws_security_group.main.id)
   auto_healing                = true

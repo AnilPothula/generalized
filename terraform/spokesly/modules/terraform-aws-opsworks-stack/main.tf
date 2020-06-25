@@ -4,7 +4,7 @@ resource "aws_opsworks_stack" "main" {
   service_role_arn              = aws_iam_role.main.arn
   default_instance_profile_arn  = aws_iam_instance_profile.ec2.arn
   agent_version                 = "LATEST"
-  configuration_manager_version = 11.10
+  configuration_manager_version = 12
   default_ssh_key_name          = var.ssh_key_name
   use_custom_cookbooks          = true
   use_opsworks_security_groups  = true
