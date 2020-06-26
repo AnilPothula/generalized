@@ -95,12 +95,27 @@ After running this, you must run ``` $ terraform -help ``` to check if the insta
         |   +-- variables.tf 
 ```
 
-## About the resources:
+## About the deployed resources:
 
 This part contains all the specifications for each resource:
 
-*VPC*: As it's mentioned on AWS, A VPC it's logically isolated section of the AWS Cloud where you can launch AWS resources in a virtual network that you define. You have complete control over your virtual networking environment, including selection of your own IP address range, creation of subnets, and configuration of route tables and network gateways. In this 
+**VPC:** As it's mentioned on AWS documentation, A VPC it's a logically isolated section of the AWS Cloud where you can launch AWS resources in a virtual network that you define. You have complete control over your virtual networking environment, including selection of your own IP address range, creation of subnets, and configuration of route tables and network gateways. 
 
+In this case, the VPC that we are deploying contains a private, database and public subnets, each one with his route table to let them communicate with each other and with the internet.
+
+**Opswork Stack:** AWS OpsWorks Stacks lets you manage applications and servers on AWS and on-premises. With OpsWorks Stacks, you can model your application as a stack containing different layers, such as load balancing, database, and application server. You can deploy and configure Amazon EC2 instances in each layer or connect other resources such as Amazon RDS databases. OpsWorks Stacks lets you set automatic scaling for your servers based on preset schedules or in response to changing traffic levels, and it uses lifecycle hooks to orchestrate changes as your environment scales. You run Chef recipes using Chef Solo, allowing you to automate tasks such as installing packages and programming languages or frameworks, configuring software, and more. 
+
+The purpose of using opsworks stacks it's to automatically run Chef Recipes, stored in CodeCommit service, to use the instances as Elasticsearch servers.
+
+**Layers:** Every stack contains one or more layers, each of which represents a stack component, such as a load balancer or a set of application servers.
+
+This structure cretes 2 layers, one for master instance and the other one for data instances. Both layers works on private subnets.
+
+**Instances:** The instances resources deploy 2 instances, one for master layer and the others for the data layer, the instances types deppends of the use that we are going to give to Elasticsearch but, it's recommended to don't go with instances with low RAM memory, going with General Purpose instances it's a good, for example we can use m5.xlarge with 16Gib of memory (for more information check: https://aws.amazon.com/ec2/instance-types/), the instance types can be changed on ./variables.tf file.
+
+**Elastic Load Balancer:** Elastic Load Balancing automatically distributes incoming application traffic across multiple targets, such as Amazon EC2 instances, containers, IP addresses, and Lambda functions. It can handle the varying load of your application traffic in a single Availability Zone or across multiple Availability Zones
+
+**Security Groups:** A security group acts as a virtual firewall for your instance to control inbound and outbound traffic. When you launch an instance in a VPC, you can assign up to five security groups to the instance. Security groups act at the instance level, not the subnet level. Therefore, each instance in a subnet in your VPC can be assigned to a different set of security groups.
 
 ## How yo deploy this template:
 
