@@ -52,14 +52,25 @@ $ choco install terraform
 
 After running this, you must run ``` $ terraform -help ``` to check if the installation was successful.
 
-# Opswork Infrastructure with Terraform
+# Opsworks Infrastructure with Terraform
 ## Cool diagram:
 
 <p align="center">
 <img src="./img/structure.png"/>
 </p>
 
-## Files Structure
+## About the repositories:
+
+### AWS CodeCommit:
+AWS CodeCommit is a fully-managed source control service that hosts secure Git-based repositories. It makes it easy for teams to collaborate on code in a secure and highly scalable ecosystem. CodeCommit eliminates the need to operate your own source control system or worry about scaling its infrastructure. You can use CodeCommit to securely store anything from source code to binaries, and it works seamlessly with your existing Git tools.
+
+For this project we will need 2 repostories:
+
+1. The first will be used only to store all this terraform infrastructure as code.
+
+2. The other one will be used to store all the Chef recipes that opsworks use to update Elasticsearch services inside the instances, this is the one we can see in the diagram.
+
+## Files Structure for Terraform infrastructure:
 ```
 .
 |
@@ -95,7 +106,7 @@ After running this, you must run ``` $ terraform -help ``` to check if the insta
         |   +-- variables.tf 
 ```
 
-## About the deployed resources:
+## About the deployed resources with terraform:
 
 This part contains all the specifications for each resource:
 
@@ -117,7 +128,7 @@ This structure cretes 2 layers, one for master instance and the other one for da
 
 **Security Groups:** A security group acts as a virtual firewall for your instance to control inbound and outbound traffic. When you launch an instance in a VPC, you can assign up to five security groups to the instance. Security groups act at the instance level, not the subnet level. Therefore, each instance in a subnet in your VPC can be assigned to a different set of security groups.
 
-## How yo deploy this template:
+## How to deploy this infrastructure:
 
 First of all you must set on AWS Credentials on your system:
 ``` bash
@@ -147,7 +158,7 @@ $ terraform plan
 ```
 `terraform plan` generates an execution plan for Terraform. This execution plan can be reviewed prior to running apply to get a sense for what Terraform will do. Optionally, the plan can be saved to a Terraform plan file, and apply can take this plan file to execute this plan exactly.
 
-After you have seen which resources you are going to create, you can finally run:
+After you have seen which resources you are going to create, finally, you can run:
 
 ``` bash
 $ terraform apply
