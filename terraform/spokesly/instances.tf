@@ -18,8 +18,8 @@ resource "aws_opsworks_instance" "master" {
   }
 
 timeouts {
-    create = "30m"
-    delete = "30m"
+    create = "15m"
+    delete = "15m"
   }
 }
 
@@ -46,7 +46,7 @@ resource "aws_opsworks_instance" "data" {
   depends_on = [ aws_opsworks_instance.master ]
 
   timeouts {
-    create = "30m"
-    delete = "30m"
+    create = "15m"
+    delete = "15m"
   }
 }

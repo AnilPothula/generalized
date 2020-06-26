@@ -3,7 +3,7 @@ resource "aws_opsworks_custom_layer" "master" {
   short_name                  = "master"
   stack_id                    = module.opsworks_stack.id
   auto_assign_elastic_ips     = false
-  auto_assign_public_ips      = true
+  auto_assign_public_ips      = false
   custom_instance_profile_arn = module.opsworks_stack.instance_profile_arn
   custom_security_group_ids   = list(aws_security_group.main.id)
   auto_healing                = true
@@ -23,7 +23,7 @@ resource "aws_opsworks_custom_layer" "data" {
   short_name                  = "data"
   stack_id                    = module.opsworks_stack.id
   auto_assign_elastic_ips     = false
-  auto_assign_public_ips      = true
+  auto_assign_public_ips      = false
   custom_instance_profile_arn = module.opsworks_stack.instance_profile_arn
   custom_security_group_ids   = list(aws_security_group.main.id)
   auto_healing                = true
