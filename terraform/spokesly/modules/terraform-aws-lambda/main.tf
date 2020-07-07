@@ -31,14 +31,12 @@ resource "aws_lambda_function" "function" {
   function_name                  = var.name
   description                    = var.description
   memory_size                    = var.memory_size
-  # s3_bucket                      = var.s3_bucket
   filename                       = var.filename
   handler                        = var.handler
   publish                        = var.publish
   runtime                        = var.runtime
   timeout                        = var.timeout
-  # s3_key                         = var.s3_key
-  role                           = aws_iam_role.iam_for_lambda_tf.arn
+  role                           = aws_iam_role.iam_for_lambda_codecommit.arn
 
   environment {
     variables = {
@@ -46,7 +44,7 @@ resource "aws_lambda_function" "function" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.function_logs, aws_iam_role.iam_for_lambda_tf]
+  depends_on = [aws_cloudwatch_log_group.function_logs, aws_iam_role.iam_for_lambda_codecommit]
 
   tags = local.tags
 }
@@ -59,8 +57,8 @@ resource "aws_lambda_permission" "allow_from_lambda" {
 	principal         = "codecommit.amazonaws.com"
 }
 
-resource "aws_iam_role" "iam_for_lambda_tf" {
-  name = "iam_for_lambda_tf"
+resource "aws_iam_role" "iam_for_lambda_codecommit" {
+  name = "iam_for_lambda_codecommit"
 
   assume_role_policy = <<EOF
 {
@@ -80,8 +78,8 @@ EOF
 
 resource "aws_iam_role_policy" "assume_role_policy" {
   name = "assume_role_policy"
-  role = aws_iam_role.iam_for_lambda_tf.name
-  depends_on = [aws_iam_role.iam_for_lambda_tf]
+  role = aws_iam_role.iam_for_lambda_codecommit.name
+  depends_on = [aws_iam_role.iam_for_lambda_codecommit]
 
   policy = <<-EOF
 {

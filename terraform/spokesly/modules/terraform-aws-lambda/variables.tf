@@ -23,7 +23,7 @@ variable "filename" {
 
 variable "repo_arn" {
   description = "Repository ARN"
-  default     = "arn:aws:codecommit:us-east-1:695292474035:layer2"
+  default     = "arn:aws:codecommit:us-west-2:167952243308:spokesly-cookbook"
   type        = string
 }
 
@@ -36,7 +36,7 @@ variable "runtime" {
 
 variable "repo_name" {
   description = "Codecommit repo"
-  default     = "layer2"
+  default     = "spokesly-cookbook"
   type        = string
 }
 

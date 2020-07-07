@@ -48,5 +48,4 @@ module "lambda" {
   source          = "./modules/terraform-aws-lambda"
   stack_id        =   module.opsworks_stack.id
   name            = "${var.name}-${terraform.workspace}"
-
 }
