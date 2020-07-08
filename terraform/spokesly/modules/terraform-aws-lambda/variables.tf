@@ -22,8 +22,7 @@ variable "filename" {
 }
 
 variable "repo_arn" {
-  description = "Repository ARN"
-  default     = "arn:aws:codecommit:us-west-2:167952243308:spokesly-cookbook"
+  description = "Codecommit rpository ARN"
   type        = string
 }
 
@@ -73,14 +72,6 @@ variable "memory_size" {
 variable "tags" {
   description = "Tags to be applied to the resource"
   default     = {}
-  type        = map
-}
-
-variable "environment" {
-  description = "A map that defines environment variables for the Lambda function"
-  default     = {
-    STACK_ID = "6fde2126-24e6-4991-adc4-8a829ed160cb"
-  }
   type        = map
 }
 
