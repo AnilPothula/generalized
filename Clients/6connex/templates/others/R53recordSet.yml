@@ -1,0 +1,53 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Record set to be created on the route 53
+
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for the route53 records set
+  ################ RECORD SET PARAMETERS ################
+  DnsName:
+    Type: String
+    Description: dns name for the record set alias target
+  HostedZoneId:
+    Type: String
+    Description: hosted zone id for the record set alias target
+  DomainName:
+    Type: String
+    Description: domain name for the record set
+  HostedZoneName:
+    Type: String
+    Description: hosted zone domain name
+  ################ RECORD SET PARAMETERS ################
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the Stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+  
+  RecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !Ref DnsName
+        HostedZoneId: !Ref HostedZoneId
+      Name:  !Ref DomainName
+      HostedZoneName: !Ref HostedZoneName
+      Type: A
+
+Outputs:
+
+  CreatedRecordSet:
+    Description: record set created
+    Value: !Ref RecordSet

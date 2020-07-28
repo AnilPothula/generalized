@@ -1,0 +1,112 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Application Load Balancer for the rts, metrics and tomcat layers
+
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for the application load balancer instance
+  ################ ALB PARAMETERS ################
+  VpcId:
+    Type: String
+    Description: vpc id where load balancer will be created
+  AlbSecurityGroup:
+    Type: String
+    Description: Application Load Balancer security group
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Ids to host the RDS instance
+  AlbCertificateArn:
+    Type: String
+    Description: Certificate for the Application LoadBalancer
+  ################ ALB PARAMETERS ################
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the Stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: !Sub ${Identifier}-${Environment}-alb
+      Scheme: internet-facing
+      SecurityGroups:
+      - !Ref AlbSecurityGroup
+      Subnets: !Ref SubnetIds
+      Type: application
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-alb
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${Identifier}-${Environment}-default-tg
+      Port: 80
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-defaukt-tg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  AlbHttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates:
+      - CertificateArn: !Ref AlbCertificateArn
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref DefaultTargetGroup
+
+Outputs:
+
+  AlbCanonicalHostedZoneId:
+    Description: application load balancer Hosted zone
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+
+  AlbDnsName:
+    Description: application load balancer nds name
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  AlbLoadBalancerFullName:
+    Description: application load balancer full name
+    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+
+  AlbLoadBalancerName:
+    Description: application load balancer name
+    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerName
+
+  AlbListener:
+    Description: application load balancer listener
+    Value: !Ref AlbHttpsListener
+  
+  AlbArn:
+    Description: application load balancer ARN
+    Value: !Ref ApplicationLoadBalancer

@@ -1,0 +1,352 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creates all resources related to SecurityGroups
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Description: A name identifier to tag the security groups resources
+
+  #####################################################################
+  VpcId:
+    Type: String
+    Description: VPC In which SecurityGroups will be created
+
+  VpcCidr:
+    Type: String
+    Description: VPC CIDR from the vpc
+
+  MgmCidr:
+    Type: String
+    Description: VPC CIDR from the management vpc
+  #####################################################################
+
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Description: The name of the Stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+  #####    opsworks security group  #####
+  OpsworksSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Opsworks security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-opsworks-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref MgmCidr
+      - IpProtocol: tcp
+        FromPort: 5666
+        ToPort: 5666
+        CidrIp: !Ref MgmCidr
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: !Ref MgmCidr
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: !Ref VpcCidr
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: udp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-opsworks-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    RTS security group  #####
+  RtsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub RTS security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-rts-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rts-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  #####    Tomcat security group  #####
+  TomcatSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Tomcat security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-tomcat-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 8081
+        ToPort: 8081
+        CidrIp: !Ref VpcCidr
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-tomcat-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    RDS security group  #####
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub RDS security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-rds-data-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: !Ref VpcCidr
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rds-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    Redis security group  #####
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Redis security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-redis-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 6379
+        ToPort: 6379
+        CidrIp: !Ref VpcCidr
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-redis-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    Memache security group  #####
+  MemcaheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Memache security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-memcache-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 11211
+        ToPort: 11211
+        CidrIp: !Ref VpcCidr
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-memcache-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    RabbitMQ security group  #####
+  RabbitMqSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub RabbittMQ security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-rabbitmq-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 5672
+        ToPort: 5672
+        CidrIp: !Ref VpcCidr
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rabbitmq-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    RabbitMQ security group  #####
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub EFS security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-efs-sg
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: udp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 2049
+        ToPort: 2049
+        CidrIp: !Ref VpcCidr
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-efs-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  #####    Tomcat video security group  #####
+  TomcatVideoSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Tomcat Video security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-tomcatvideo-sg
+      VpcId: !Ref VpcId
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-tomcat-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  #####   ApplicationLoadBalancer security group  #####
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ALB security group in env ${Environment}
+      GroupName: !Sub ${Identifier}-${Environment}-alb-sg
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      Tags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-alb-sg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+
+  OpsworksSg:
+    Description: Security Group for Opsworks
+    Value: !Ref OpsworksSecurityGroup
+
+  RtsSg:
+    Description: Security for RTS
+    Value: !Ref RtsSecurityGroup
+
+  TomcatSg:
+    Description: Security Group for Tomcat
+    Value: !Ref TomcatSecurityGroup
+  
+  RdsSg:
+    Description: Security Group for RDS
+    Value: !Ref RdsSecurityGroup
+
+  RedisSg:
+    Description: Security Group for Redis
+    Value: !Ref RedisSecurityGroup
+  
+  MemcaheSg:
+    Description: Security Group for Memcahe
+    Value: !Ref MemcaheSecurityGroup
+
+  RabbitSg:
+    Description: Security Group for Rabbit
+    Value: !Ref RedisSecurityGroup
+
+  EfsSg:
+    Description: Security Group for EFS
+    Value: !Ref EfsSecurityGroup
+
+  TomcatVideoSg:
+    Description: Security Group for EFS
+    Value: !Ref TomcatVideoSecurityGroup
+
+  AlbSg:
+    Description: Application Loadbalancer Security Group
+    Value: !Ref AlbSecurityGroup

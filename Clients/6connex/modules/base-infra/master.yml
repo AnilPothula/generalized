@@ -1,0 +1,1026 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Template - Network module, creates the vpc and subnets for the infrastrcture
+
+Parameters:
+  ##################### ENVIRONMENT PARAMETERS #####################################
+  Identifier:
+    Type: String
+    Description: Identifier to tag resources created by the stack
+  S3BucketName:
+    Type: String
+    Description: bucket where CloudFormation templates are stored
+  OwnerName:
+    Type: String
+    Default: 6connex
+    Description: An arbitrary tag name for the owner of these resources
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+  ##################### MANAGEMENT ################
+  VpcCidr:
+    Type: String
+    Description: IPV4 CIDR block for the VPC
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/(\\d{1,2})"
+    ConstraintDescription: You must enter a valid CIDR string
+  PublicSubnetsCidr:
+    Type: String
+    Description: IPV4 CIDR blocks for the public subnets
+  DataSubnetsCidr:
+    Type: String
+    Description: IPV4 CIDR blocks for the data subnets
+  ApplicationSubnetsCidr:
+    Type: String
+    Description: IPV4 CIDR blocks for the application subnets
+  MgmCidr:
+    Type: String
+    Description: managemente vpc cidr blocks
+  RequesterVpcId:
+    Type: String
+    Description: id of the managemente vpc
+  MgmtRegion:
+    Type: String
+    Description: region where the management vpc is located
+  ##################### NETWORK PARAMETERS #########################################
+  ##################### OPSWORKS PARAMETERS ########################################
+  RepositoryUrl:
+    Type: String
+    Description: Defines the repository url where cookbooks are stored
+  DefaultSshKeyName:
+    Type: String
+    Description: KeyName to use for instances
+  OpsworksConfig:
+    Type: String
+    Default: default
+    Description: defines an opsworks configuration to use for the opsworks stack, optional
+    AllowedValues:
+    - default
+  ##################### OPSWORKS PARAMETERS ########################################
+  AlbCertificateArn:
+    Type: String
+    Description: application load balancer certificate
+  #################################################################################
+  RtsImageId:
+    Type: AWS::EC2::Image::Id
+    Description: RTS AMI to use for the autoscaling launch template
+  RtsInstanceType:
+    Type: String
+    Description: RTS Instance Type to be used for autoscaling, enter a valid Instance Type
+  RtsDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the RTS autoscaling group
+  RtsMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the rts autoscaling group
+  RtsMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the rts autoscaling group
+  RtsLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down rts instances when CPU usage is low
+  RtsHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up rts instances when CPU usage is high
+  RtsScaleDownAdjustment:
+    Type: Number
+    Description: The amount by which to scale down
+    Default: -1
+  RtsScaleUpAdjustment:
+    Type: Number
+    Description: The amount by which to scale up
+    Default: 1
+  #################################################################################
+  TomcatImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Tomcat AMI to use for the autoscaling launch template
+  TomcatInstanceType:
+    Type: String
+    Description: Tomcat Instance Type to be used for autoscaling, enter a valid Instance Type
+  TomcatDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the tomcat autoscaling group
+  TomcatMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the tomcat autoscaling group
+  TomcatMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the tomcat autoscaling group
+  TomcatLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down tomcat instances when CPU usage is low
+  TomcatHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up tomcat instances when CPU usage is high
+  TomcatScaleDownAdjustment:
+    Type: Number
+    Description: The amount by which to scale down
+    Default: -1
+  TomcatScaleUpAdjustment:
+    Type: Number
+    Description: The amount by which to scale up
+    Default: 1
+  #################################################################################
+  TomcatVideoImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Tomcat AMI to use for the autoscaling launch template
+  TomcatVideoInstanceType:
+    Type: String
+    Description: Tomcat Instance Type to be used for autoscaling, enter a valid Instance Type
+  TomcatVideoDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the tomcat autoscaling group
+  TomcatVideoMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the tomcat autoscaling group
+  TomcatVideoMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the tomcat autoscaling group
+  TomcatVideoLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down tomcat instances when CPU usage is low
+  TomcatVideoHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up tomcat instances when CPU usage is high
+  TomcatVideoScaleDownAdjustment:
+    Type: Number
+    Description: The amount by which to scale down
+    Default: -1
+  TomcatVideoScaleUpAdjustment:
+    Type: Number
+    Description: The amount by which to scale up
+    Default: 1
+  #################################################################################
+  Route53HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: hosted zone Id
+  #################################################################################
+  MemcacheNodes:
+    Type: Number
+    Description: number of nodes to use for the memcache cluster (same numbre as AZs)
+  MemcacheType:
+    Type: String
+    Description: nodes types for memcache nodes
+  MemcacheMultiAz:
+    Type: String
+    Default: single-az
+    Description: multi az cluster
+    AllowedValues:
+    - cross-az
+    - single-az
+  #################################################################################
+  RedisNodes:
+    Type: Number
+    Default: 2
+    Description: number of nodes for the redis cluster (Minimum 2 Nodes)
+  RedisType:
+    Type: String
+    Description: redis nodes types
+  RedisMultiAz:
+    Type: String
+    Default: false
+    Description: configures a multi az redis cluster
+    AllowedValues:
+    - true
+    - false
+  #################################################################################
+  UserDb:
+    Type: String
+    Description: Username for db6c database instance
+  PasswordDb:
+    Type: String
+    NoEcho: true
+    Description: Password for db6c database instance
+  ClassDb:
+    Type: String
+    Description: Class for db6c database instance
+  AllocatedStorageDb:
+    Type: String
+    Description: allocated Storage for db6c database instance
+  #################################################################################
+  UserDw:
+    Type: String
+    Description: Username for dw6c database instance
+  PasswordDw:
+    Type: String
+    NoEcho: true
+    Description: Password for dw6c database instance
+  ClassDw:
+    Type: String
+    Description: Class for dw6c database instance
+  AllocatedStorageDw:
+    Type: String
+    Description: allocated Storage for dw6c database instance
+  #################################################################################
+  RdsMultiAz:
+    Type: String
+    Default: false
+    Description: creates a multi az dbs
+    AllowedValues:
+    - true
+    - false
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "Environment Configurations"
+      Parameters:
+      - Identifier
+      - S3BucketName
+      - OwnerName
+      - Environment
+    - Label:
+        default: "Network Configuration for the Environment"
+      Parameters:
+      - VpcCidr
+      - PublicSubnetsCidr
+      - ApplicationSubnetsCidr
+      - DataSubnetsCidr
+    - Label:
+        default: "VPC Peering Configurations"
+      Parameters:
+      - MgmCidr
+      - RequesterVpcId
+      - MgmtRegion
+    - Label:
+        default: "Opsworks Stack Configuration"
+      Parameters:
+      - RepositoryUrl
+      - DefaultSshKeyName
+      - OpsworksConfig
+    - Label:
+        default: "Application Load Balancer Configuration"
+      Parameters:
+      - AlbCertificateArn
+      - Route53HostedZoneId
+    - Label:
+        default: "RTS Autoscaling Configurations"
+      Parameters:
+      - RtsImageId
+      - RtsInstanceType
+      - RtsDesiredCapacity
+      - RtsMaxSize
+      - RtsMinSize
+      - RtsLowCpuTreshold
+      - RtsHighCpuTreshold
+      - RtsScaleDownAdjustment
+      - RtsScaleUpAdjustment
+    - Label:
+        default: "Tomcat Autoscaling Configurations"
+      Parameters:
+      - TomcatImageId
+      - TomcatInstanceType
+      - TomcatDesiredCapacity
+      - TomcatMaxSize
+      - TomcatMinSize
+      - TomcatLowCpuTreshold
+      - TomcatHighCpuTreshold
+      - TomcatScaleDownAdjustment
+      - TomcatScaleUpAdjustment
+    - Label:
+        default: "Tomcat Video Autoscaling Configurations"
+      Parameters:
+      - TomcatVideoImageId
+      - TomcatVideoInstanceType
+      - TomcatVideoDesiredCapacity
+      - TomcatVideoMaxSize
+      - TomcatVideoMinSize
+      - TomcatVideoLowCpuTreshold
+      - TomcatVideoHighCpuTreshold
+      - TomcatVideoScaleDownAdjustment
+      - TomcatVideoScaleUpAdjustment
+    - Label:
+        default: "Memcache Cluster Configuration"
+      Parameters:
+      - MemcacheNodes
+      - MemcacheType
+      - MemcacheMultiAz
+    - Label:
+        default: "Redis Cluster Configuration"
+      Parameters:
+      - RedisNodes
+      - RedisType
+      - RedisMultiAz
+    - Label:
+        default: "RDS DB configuration"
+      Parameters:
+      - UserDb
+      - PasswordDb
+      - ClassDb
+      - AllocatedStorageDb
+    - Label:
+        default: "RDS DW Configuration"
+      Parameters:
+      - UserDw
+      - PasswordDw
+      - ClassDw
+      - AllocatedStorageDw
+    - Label:
+        default: "General RDS Configuration"
+      Parameters:
+      - RdsMultiAz
+    ParameterLabels:
+      Identifier:
+        default: 'Name to append to the resources'
+      S3BucketName:
+        default: 'S3 Bucket Name'
+      OwnerName:
+        default: 'Owner of the resources'
+      Environment:
+        default: 'Environment of the infrastructure deployment (default: dev)'
+      VpcCidr:
+        default: Valid VPC CDIR (must not overlap Management VPC CIDR)
+      PublicSubnetsCidr:
+        default: Valid CDIR Block, comma separated values for public subnets
+      ApplicationSubnetsCidr:
+        default: Valid CIDR Block, comma separated values for application subnets
+      DataSubnetsCidr:
+        default: Valid CIDR Block, comma separated values for data subnets
+      MgmtRegion:
+        default: Region of the Management VPC
+      MgmCidr:
+        default: CIDR of the managemente VPC
+      RequesterVpcId:
+        default: ID of the managemente VPC
+      RepositoryUrl:
+        default: Git repository of the Chef Recipes
+      DefaultSshKeyName:
+        default: Key Pair name for OpsworksStack
+      OpsworksConfig:
+        default: Select a configuration to use for the opsworks stack
+      AlbCertificateArn:
+        default: ARN of the certificate to be used on the Application load balancer
+      RtsImageId:
+        default: RTS AMI to use
+      RtsInstanceType:
+        default: RTS Instance type for autoscaling (Provide Valid Type)
+      RtsDesiredCapacity:
+        default: Number of RTS instances to provision
+      RtsMaxSize:
+        default: Maximum number of RTS instances for the autoscaling group
+      RtsMinSize:
+        default: Minimum number of RTS instances for the autoscaling group
+      RtsLowCpuTreshold:
+        default: CPU porcentage value to scale down instances on rts autoscaling
+      RtsHighCpuTreshold:
+        default: CPU porcentage value to scale up instances or rtas autoscaling
+      RtsScaleDownAdjustment:
+        default: How many instances to scale down (negative)
+      RtsScaleUpAdjustment:
+        default: How many instances to scale up (positive)
+      TomcatImageId:
+        default: Tomcat AMI to use
+      TomcatInstanceType:
+        default: Tomcat Instance type for autoscaling (Provide Valid Type)
+      TomcatDesiredCapacity:
+        default: Number of Tomcat instances to provision
+      TomcatMaxSize:
+        default: Maximum number of Tomcat instances for the autoscaling group
+      TomcatMinSize:
+        default: Minimum number of Tomcat instances for the autoscaling group
+      TomcatLowCpuTreshold:
+        default: CPU porcentage value to scale down instances on tomcat autoscaling
+      TomcatHighCpuTreshold:
+        default: CPU porcentage value to scale up instances or tomcat autoscaling
+      TomcatScaleDownAdjustment:
+        default: How many instances to scale down (negative)
+      TomcatScaleUpAdjustment:
+        default: How many instances to scale up (positive)
+      TomcatVideoImageId:
+        default: Tomcat Video AMI to use
+      TomcatVideoInstanceType:
+        default: Tomcat Instance type for autoscaling (Provide Valid Type)
+      TomcatVideoDesiredCapacity:
+        default: Number of Tomcat instances to provision
+      TomcatVideoMaxSize:
+        default: Maximum number of Tomcat instances for the autoscaling group
+      TomcatVideoMinSize:
+        default: Minimum number of Tomcat instances for the autoscaling group
+      TomcatVideoLowCpuTreshold:
+        default: CPU porcentage value to scale down instances on tomcat autoscaling
+      TomcatVideoHighCpuTreshold:
+        default: CPU porcentage value to scale up instances or tomcat autoscaling
+      TomcatVideoScaleDownAdjustment:
+        default: How many instances to scale down (negative)
+      TomcatVideoScaleUpAdjustment:
+        default: How many instances to scale up (positive)
+      MemcacheNodes:
+        default: Number of Nodes for Memcache Clusters (same number as AZs)
+      MemcacheType:
+        default: Type for memcache nodes
+      MemcacheMultiAz:
+        default: MultiAz cluster configuration (if cross-az, number of nodes must be same number as AZs on Region)
+      RedisNodes:
+        default: Number of Nodes for Redis Cluster (same number as AZs)
+      RedisType:
+        default: Type of redis nodes
+      RedisMultiAz:
+        default: MultiAz cluster configuration (if true, number of nodes must be same number as AZs on Region)
+      UserDb:
+        default: Username for DB RDS instance
+      PasswordDb:
+        default: Password for DB RDS instance
+      ClassDb:
+        default: Class for DB RDS
+      AllocatedStorageDb:
+        default: Allocated Storage for DB RDS Instance
+      UserDw:
+        default: Username for DW RDS instance
+      PasswordDw:
+        default: Password for DW RDS instance
+      ClassDw:
+        default: Class for DW RDS
+      AllocatedStorageDw:
+        default: Allocated Storage for DW RDS Instance
+      RdsMultiAz:
+        default: "RDS MultiAz creation"
+
+Mappings:
+
+  NetworkTemplate:
+    us-east-1:
+      template: vpc.yml
+      identifier: us2
+
+  OpsworksConfiguration:
+    default:
+      Identifier: 'us2'
+      AgentVersion: 'LATEST'
+      BerkshelfVersion: '3.2.0'
+      ManageBerkshelf: 'true'
+      ConfigurationManagerName: 'Chef'
+      ConfigurationManagerVersion: '11.10'
+      RepositoryType: 'git'
+      DefaultOs: 'Custom'
+      DefaultRootDeviceType: 'ebs'
+      HostnameTheme: 'Layer_Dependent'
+      UseCustomCookbooks: 'true'
+
+  S3BucketsNames:
+    us-east-1:
+      SharedFilesName: sharedfiles-download
+      BatchReportsName: batch-export-reports
+      BriefCaseName: briefcase-downloads
+      BuildsName: 6connex-builds
+
+  AutoScalingConfig:
+    RtsConfig:
+      DownCooldown: 300
+      UpCooldown: 300
+      LowPerid: 300
+      HighPeriod: 300
+    TomcatConfig:
+      DownCooldown: 300
+      UpCooldown: 300
+      LowPerid: 300
+      HighPeriod: 300
+    TomcatVideo:
+      DownCooldown: 300
+      UpCooldown: 300
+      LowPerid: 300
+      HighPeriod: 300
+
+  DataStoreConfiguration:
+    EfsConfig:
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      Encrypted: 'false'
+    MemcacheConfig:
+      CacheParameterGroupFamily: memcached1.4
+      ElasticacheEngine: memcached
+      MultiAz: cross-az
+      EngineVersion: '1.4.14'
+      MemcachePort: '11211'
+    RedisConfig:
+      Encryptation: 'false'
+      CacheParameterGroupFamily: 'redis5.0'
+      ElasticacheEngine: 'redis'
+      EngineVersion: '5.0.6'
+      MultiAzEnabled: 'true'
+      RedisPort: '6379'
+
+Conditions:
+
+  IsProduction: !Equals [!Ref Environment, 'prod']
+
+Resources:
+
+  Network:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        !Sub
+          - "https://${Bucket}.s3.${Region}.amazonaws.com/${Env}/templates/network/${Template}"
+          - Bucket: !Ref S3BucketName
+            Region: !Ref 'AWS::Region'
+            Env: !Ref Environment
+            Template: !FindInMap [NetworkTemplate, !Ref 'AWS::Region', template]
+      Parameters:
+        Identifier: !Ref Identifier
+        VpcCidr: !Ref VpcCidr
+        PublicSubnetsCidr: !Join [ ',', !Split [',', !Ref PublicSubnetsCidr] ]
+        DataSubnetsCidr: !Join [ ',', !Split [',', !Ref DataSubnetsCidr] ]
+        ApplicationSubnetsCidr: !Join [ ',', !Split [',', !Ref ApplicationSubnetsCidr]]
+        SetNatGateway: true
+        NatGatewayHA: !If [IsProduction, true, false]
+        RequesterVpcId: !Ref RequesterVpcId
+        RequesterVpcCidrBlock: !Ref MgmCidr
+        MgmtRegion: !Ref MgmtRegion
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  SecurityGroups:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/network/security_groups.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-sgs
+        VpcId: !GetAtt Network.Outputs.VpcId
+        VpcCidr: !Ref VpcCidr
+        MgmCidr: !Ref MgmCidr
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  S3Shared:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/s3.yml"
+      Parameters:
+        Identifier:
+          !Sub
+            - "${BaseName}-${Id}"
+            - BaseName: !FindInMap [S3BucketsNames, !Ref 'AWS::Region', SharedFilesName]
+              Id: !Ref Identifier
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        OwnerName: !Ref OwnerName
+
+  S3BriefCase:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/s3.yml"
+      Parameters:
+        Identifier:
+          !Sub
+            - "${BaseName}-${Id}"
+            - BaseName: !FindInMap [S3BucketsNames, !Ref 'AWS::Region', BriefCaseName]
+              Id: !Ref Identifier
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        OwnerName: !Ref OwnerName
+
+  S3BatchReport:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/s3.yml"
+      Parameters:
+        Identifier:
+          !Sub
+            - "${BaseName}-${Id}"
+            - BaseName: !FindInMap [S3BucketsNames, !Ref 'AWS::Region', BatchReportsName]
+              Id: !Ref Identifier
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        OwnerName: !Ref OwnerName
+
+  S3Builds:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/s3.yml"
+      Parameters:
+        Identifier:
+          !Sub
+            - "${BaseName}-${Id}"
+            - BaseName: !FindInMap [S3BucketsNames, !Ref 'AWS::Region', BuildsName]
+              Id: !Ref Identifier
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+        OwnerName: !Ref OwnerName
+
+  OpsworksStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworks.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        AgentVersion: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, AgentVersion]
+        BerkshelfVersion: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, BerkshelfVersion]
+        ManageBerkshelf: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, ManageBerkshelf]
+        ConfigurationManagerVersion: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, ConfigurationManagerVersion]
+        ConfigurationManagerName: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, ConfigurationManagerName]
+        RepositoryType: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, RepositoryType]
+        RepositoryUrl: !Ref RepositoryUrl
+        DefaultOs: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, DefaultOs]
+        DefaultRootDeviceType: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, DefaultRootDeviceType]
+        DefaultSubnetId: !GetAtt Network.Outputs.ApplicationSubnet1Id
+        HostnameTheme: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, HostnameTheme]
+        UseCustomCookbooks: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, UseCustomCookbooks]
+        DefaultSshKeyName: !Ref DefaultSshKeyName
+        VpcId: !GetAtt Network.Outputs.VpcId
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  LayersStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - OpsworksStack
+    - SecurityGroups
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworks-layers.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        OpsworksStackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+        S3BuildBucketArn: !GetAtt S3Builds.Outputs.BucketS3
+        S3SharedFilesArn: !GetAtt S3Shared.Outputs.BucketS3
+        S3BriefCaseArn: !GetAtt S3BriefCase.Outputs.BucketS3
+        S3BatchReportArn: !GetAtt S3BatchReport.Outputs.BucketS3
+        Route53HostedZoneId: !Ref Route53HostedZoneId
+        RtsSecurityGroup: !GetAtt SecurityGroups.Outputs.RtsSg
+        OpsworksSecurityGroup: !GetAtt SecurityGroups.Outputs.OpsworksSg
+        TomcatSecurityGroup: !GetAtt SecurityGroups.Outputs.TomcatSg
+        RabbitSecurityGroup: !GetAtt SecurityGroups.Outputs.RabbitSg
+        RedisSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
+        TomcatVideoSecurityGroup: !GetAtt SecurityGroups.Outputs.TomcatVideoSg
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - LayersStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/alb.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-alb
+        VpcId: !GetAtt Network.Outputs.VpcId
+        AlbSecurityGroup: !GetAtt SecurityGroups.Outputs.AlbSg
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.PublicSubnetIds] ]
+        AlbCertificateArn: !Ref AlbCertificateArn
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  TargetGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - AlbStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        VpcId: !GetAtt Network.Outputs.VpcId
+        AlbArn: !GetAtt AlbStack.Outputs.AlbArn
+        AlbListenerArn: !GetAtt AlbStack.Outputs.AlbListener
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AutoScalingRts:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-rts
+        VpcId: !GetAtt Network.Outputs.VpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
+        ImageId: !Ref RtsImageId
+        StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.RtsLayerId
+        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.RtsSg, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
+        InstanceType: !Ref RtsInstanceType
+        KeyName: !Ref DefaultSshKeyName
+        AvalabilityZones:
+          !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
+        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.RtsTg
+        DesiredCapacity: !Ref RtsDesiredCapacity
+        ScalingUpAdjustment: !Ref RtsScaleUpAdjustment
+        MaxSize: !Ref RtsMaxSize
+        MinSize: !Ref RtsMinSize
+        ScalingDownAdjustment: !Ref RtsScaleDownAdjustment
+        ScaleDownCooldown: !FindInMap [AutoScalingConfig, RtsConfig, DownCooldown]
+        ScaleUpCooldown: !FindInMap [AutoScalingConfig, RtsConfig, UpCooldown]
+        LowPeriod: !FindInMap [AutoScalingConfig, RtsConfig, LowPerid]
+        LowCpuTreshold: !Ref RtsLowCpuTreshold
+        HighPeriod: !FindInMap [AutoScalingConfig, RtsConfig, HighPeriod]
+        HighCpuTreshold: !Ref RtsHighCpuTreshold
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AutoScalingTomcat:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-tomcat
+        VpcId: !GetAtt Network.Outputs.VpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
+        ImageId: !Ref TomcatImageId
+        StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.TomcatLayerId
+        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.TomcatSg, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
+        InstanceType: !Ref TomcatInstanceType
+        KeyName: !Ref DefaultSshKeyName
+        AvalabilityZones:
+          !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
+        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.TomcatTg
+        DesiredCapacity: !Ref TomcatDesiredCapacity
+        ScalingUpAdjustment: !Ref TomcatScaleUpAdjustment
+        MaxSize: !Ref TomcatMaxSize
+        MinSize: !Ref TomcatMinSize
+        ScalingDownAdjustment: !Ref TomcatScaleDownAdjustment
+        ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatConfig, DownCooldown]
+        ScaleUpCooldown: !FindInMap [AutoScalingConfig, RtsConfig, UpCooldown]
+        LowPeriod: !FindInMap [AutoScalingConfig, RtsConfig, LowPerid]
+        LowCpuTreshold: !Ref TomcatLowCpuTreshold
+        HighPeriod: !FindInMap [AutoScalingConfig, RtsConfig, HighPeriod]
+        HighCpuTreshold: !Ref TomcatHighCpuTreshold
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AutoScalingTomcatVideo:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-tomcatvideo
+        VpcId: !GetAtt Network.Outputs.VpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn
+        ImageId: !Ref TomcatVideoImageId
+        StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.TomcatVideoLayereId
+        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.TomcatVideoSg, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
+        InstanceType: !Ref TomcatVideoInstanceType
+        KeyName: !Ref DefaultSshKeyName
+        AvalabilityZones:
+          !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
+        TargetGroupArn: !Ref 'AWS::NoValue'
+        DesiredCapacity: !Ref TomcatVideoDesiredCapacity
+        ScalingUpAdjustment: !Ref TomcatVideoScaleUpAdjustment
+        MaxSize: !Ref TomcatVideoMaxSize
+        MinSize: !Ref TomcatVideoMinSize
+        ScalingDownAdjustment: !Ref TomcatVideoScaleDownAdjustment
+        ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, DownCooldown]
+        ScaleUpCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, UpCooldown]
+        LowPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, LowPerid]
+        LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
+        HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
+        HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  EfsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/efs.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-efs
+        Encrypted: !FindInMap [DataStoreConfiguration, EfsConfig, Encrypted]
+        KmsKeyId: ''
+        PerformanceMode: !FindInMap [DataStoreConfiguration, EfsConfig, PerformanceMode]
+        ThroughputMode: !FindInMap [DataStoreConfiguration, EfsConfig, ThroughputMode]
+        ProvisionedThroughputInMibps: !Ref 'AWS::NoValue'
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        EfsSecurityGroup: !GetAtt SecurityGroups.Outputs.EfsSg
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  MemCacheClusterStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/elasticache.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-memcache
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.MemcaheSg
+        ElasticachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        CacheNodeType: !Ref MemcacheType
+        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, MemcacheConfig, CacheParameterGroupFamily]
+        ElasticacheEngine: !FindInMap [DataStoreConfiguration, MemcacheConfig, ElasticacheEngine]
+        EngineVersion: !FindInMap [DataStoreConfiguration, MemcacheConfig, EngineVersion]
+        NumCacheNodes: !Ref MemcacheNodes
+        MultiAz: !Ref MemcacheMultiAz
+        PreferredAvailabilityZones:
+          !If
+          - IsProduction
+          - !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+          - !Select
+            - 0
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  RedisReplicationCluster:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/redis.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-redis
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
+        ElasticachePort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        Encryptation: !FindInMap [DataStoreConfiguration, RedisConfig, Encryptation]
+        CacheNodeType: !Ref RedisType
+        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, RedisConfig, CacheParameterGroupFamily]
+        ElasticacheEngine: !FindInMap [DataStoreConfiguration, RedisConfig, ElasticacheEngine]
+        EngineVersion: !FindInMap [DataStoreConfiguration, RedisConfig, EngineVersion]
+        NumCacheClusters: !Ref RedisNodes
+        MultiAzEnabled: !Ref RedisMultiAz
+        PreferredAvailabilityZones:
+          !If
+          - IsProduction
+          - !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+          - !Join
+            - ','
+            - - !Select
+                - 0
+                - Fn::GetAZs: !Ref 'AWS::Region'
+              - !Select
+                - 1
+                - Fn::GetAZs: !Ref 'AWS::Region'
+        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  RdsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-rds
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        RdsSecurityGroup: !GetAtt SecurityGroups.Outputs.RdsSg
+        UserDb: !Ref UserDb
+        PasswordDb: !Ref PasswordDb
+        ClassDb: !Ref ClassDb
+        AllocatedStorageDb: !Ref AllocatedStorageDb
+        UserDw: !Ref UserDw
+        PasswordDw: !Ref PasswordDw
+        ClassDw: !Ref ClassDw
+        AllocatedStorageDw: !Ref AllocatedStorageDw
+        MultiAz: !Ref RdsMultiAz
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+Outputs:
+
+  NetworkPublicIds:
+    Description: public subnets ids created
+    Value: !GetAtt Network.Outputs.PublicSubnetIds
+
+  NetworkApplicationIds:
+    Description: application subnets ids created
+    Value: !GetAtt Network.Outputs.ApplicationSubnetIds
+
+  NetworkDataIds:
+    Description: data subnets ids created
+    Value: !GetAtt Network.Outputs.DataSubnetIds
+
+  NetworkVpcId:
+    Description: vpc id created
+    Value: !GetAtt Network.Outputs.VpcId
+
+  OpsworksStackId:
+    Description: opsworks stack id
+    Value: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+
+  SecurityGroupOspworksId:
+    Description: opsworks security group id
+    Value: !GetAtt SecurityGroups.Outputs.OpsworksSg
+
+  SecurityGroupRtsId:
+    Description: RTS security group id
+    Value: !GetAtt SecurityGroups.Outputs.RtsSg
+
+  SecurityGroupTomcatId:
+    Description: Tomcat security group id
+    Value: !GetAtt SecurityGroups.Outputs.TomcatSg
+
+  SecurityGroupRdsId:
+    Description: RDS security group id
+    Value: !GetAtt SecurityGroups.Outputs.RdsSg
+
+  SecurityGroupRedisId:
+    Description: Redis security group id
+    Value: !GetAtt SecurityGroups.Outputs.RedisSg
+
+  SecurityGroupMemcacheId:
+    Description: Memcache security group id
+    Value: !GetAtt SecurityGroups.Outputs.MemcaheSg
+
+  SecurityGroupEfsId:
+    Description: Efs security group id
+    Value: !GetAtt SecurityGroups.Outputs.EfsSg
+
+  SecurityGroupTomcatVideoId:
+    Description: Tomcat Video security group id
+    Value: !GetAtt SecurityGroups.Outputs.TomcatVideoSg
+
+  SecurityGroupAlbId:
+    Description: Application Load Balancer security group id
+    Value: !GetAtt SecurityGroups.Outputs.AlbSg
+
+  ApplicationLoadBalancerArn:
+    Description: alb arn exposed
+    Value: !GetAtt AlbStack.Outputs.AlbArn
+
+  ApplicationLoadBalancerListener:
+    Description: alb listener arn
+    Value: !GetAtt AlbStack.Outputs.AlbListener
+
+  SharedFilesArn:
+    Description: S3 Shared Files ARN
+    Value: !GetAtt S3Shared.Outputs.BucketS3
+
+  BriefCaseArn:
+    Description: S3 Brief Case ARN
+    Value: !GetAtt S3BriefCase.Outputs.BucketS3
+
+  BatchReportArn:
+    Description: S3 Batch Report ARN
+    Value: !GetAtt S3BatchReport.Outputs.BucketS3
+
+  BuildsArn:
+    Description: S3 Builds ARN
+    Value: !GetAtt S3Builds.Outputs.BucketS3
+
+  MemCacheEndpoint:
+    Description: memcache endpoint address
+    Value: !GetAtt MemCacheClusterStack.Outputs.ClusterEndPoint
+
+  RedisEndpoint:
+    Description: redis endpoint
+    Value: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+
+  DbDatabaseEndpoint:
+    Description: DB database endpoint address
+    Value: !GetAtt RdsStack.Outputs.DbEndpoint
+
+  DwDatabaseEndpoint:
+    Description: DW database endpoint
+    Condition: IsProduction
+    Value: !GetAtt RdsStack.Outputs.DwEndpoint

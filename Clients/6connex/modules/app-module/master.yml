@@ -1,0 +1,392 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Template - App module, creates opsworks layers, target groups for the application configuration, also creates autoscaling for the application layers
+
+Parameters:
+  ##################### ENVIRONMENT PARAMETERS #####################################
+  S3BucketName:
+    Type: String
+    Description: bucket where CloudFormation templates are stored
+  OwnerName:
+    Type: String
+    Default: 6connex
+    Description: An arbitrary tag name for the owner of these resources
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+  Identifier:
+    Type: String
+    Description: Identifier for the resources to be created, could be Client's name
+  #################################################################################
+  OpsworksSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Opsworks SecurityGroup
+  RtsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Rts Security Group
+  TomcatSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: TOmcat Security Group
+  TomcatVideoSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Tomcat Video Security group
+  RedisSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Redis Security group
+  RdsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: RDS Security group
+  MemcacheSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Memcache Security group
+  EfsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Efs Security group
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Alb Security group
+  RabbitMqSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Rabbit mq  Security group
+  #################################################################################
+  OpsworksStackId:
+    Type: String
+    Description: Opsworks stack id
+  SshKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: key pair to use for the Instances
+  #################################################################################
+  S3SharedBucket:
+    Type: String
+    Description: Bucket for the shared files ARN
+  S3BriefCaseBucket:
+    Type: String
+    Description: Bucket for the brief case files ARN
+  S3BatchReports:
+    Type: String
+    Description: Bucket for the batch ARN
+  S3BuildsBucket:
+    Type: String
+    Description: Bucket for builds ARN
+  Route53HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: hosted zone Id
+  #################################################################################
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC id for where the resources will be created
+  ApplicationSubnetsIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets ids to use for the application deployment, 1 subnet for each Availabilty Zone (Important)
+  #################################################################################
+  AlbArn:
+    Type: String
+    Description: application load balancer ARN
+  AlbListenerArn:
+    Type: String
+    Description: application load balancer listener ARN
+  #################################################################################
+  RtsImageId:
+    Type: AWS::EC2::Image::Id
+    Description: RTS AMI to use for the autoscaling launch template
+  RtsInstanceType:
+    Type: String
+    Description: RTS Instance Type to be used for autoscaling, enter a valid Instance Type
+  RtsDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the RTS autoscaling group
+  RtsMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the rts autoscaling group
+  RtsMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the rts autoscaling group
+  RtsLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down rts instances when CPU usage is low
+  RtsHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up rts instances when CPU usage is high
+  RtsScaleDownAdjustment:
+    Type: Number
+    Description: The amount by which to scale down
+    Default: -1
+  RtsScaleUpAdjustment:
+    Type: Number
+    Description: The amount by which to scale up
+    Default: 1
+  #################################################################################
+  TomcatImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Tomcat AMI to use for the autoscaling launch template
+  TomcatInstanceType:
+    Type: String
+    Description: Tomcat Instance Type to be used for autoscaling, enter a valid Instance Type
+  TomcatDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the tomcat autoscaling group
+  TomcatMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the tomcat autoscaling group
+  TomcatMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the tomcat autoscaling group
+  TomcatLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down tomcat instances when CPU usage is low
+  TomcatHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up tomcat instances when CPU usage is high
+  TomcatScaleDownAdjustment:
+    Type: Number
+    Description: The amount by which to scale down
+    Default: -1
+  TomcatScaleUpAdjustment:
+    Type: Number
+    Description: The amount by which to scale up
+    Default: 1
+  #################################################################################
+  TomcatVideoImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Tomcat AMI to use for the autoscaling launch template
+  TomcatVideoInstanceType:
+    Type: String
+    Description: Tomcat Instance Type to be used for autoscaling, enter a valid Instance Type
+  TomcatVideoDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the tomcat autoscaling group
+  TomcatVideoMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the tomcat autoscaling group
+  TomcatVideoMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the tomcat autoscaling group
+  TomcatVideoLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down tomcat instances when CPU usage is low
+  TomcatVideoHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up tomcat instances when CPU usage is high
+  TomcatVideoScaleDownAdjustment:
+    Type: Number
+    Description: The amount by which to scale down
+    Default: -1
+  TomcatVideoScaleUpAdjustment:
+    Type: Number
+    Description: The amount by which to scale up
+    Default: 1
+  
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "Environment Configurations"
+      Parameters:
+      - S3BucketName
+      - OwnerName
+      - Environment
+      - Identifier
+    - Label:
+        default: "Network Configurations"
+      Parameters:
+      - VpcId
+      - ApplicationSubnetsIds
+    - Label:
+        default: "Application LoadBalancer Configuration"
+      Parameters:
+      - AlbArn
+      - AlbListenerArn
+    - Label:
+        default: "Opsworks Layers Configurations"
+      Parameters:
+      - OpsworksStackId
+      - SshKeyName
+    - Label:
+        default: "RTS Autoscaling Configurations"
+      Parameters:
+      - RtsImageId
+      - RtsInstanceType
+      - RtsDesiredCapacity
+      - RtsMaxSize
+      - RtsMinSize
+      - RtsLowCpuTreshold
+      - RtsHighCpuTreshold
+      - RtsScaleDownAdjustment
+      - RtsScaleUpAdjustment
+    - Label:
+        default: "Tomcat Autoscaling Configurations"
+      Parameters:
+      - TomcatImageId
+      - TomcatInstanceType
+      - TomcatDesiredCapacity
+      - TomcatMaxSize
+      - TomcatMinSize
+      - TomcatLowCpuTreshold
+      - TomcatHighCpuTreshold
+      - TomcatScaleDownAdjustment
+      - TomcatScaleUpAdjustment
+    - Label:
+        default: "Tomcat Video Autoscaling Configurations"
+      Parameters:
+      - TomcatVideoImageId
+      - TomcatVideoInstanceType
+      - TomcatVideoDesiredCapacity
+      - TomcatVideoMaxSize
+      - TomcatVideoMinSize
+      - TomcatVideoLowCpuTreshold
+      - TomcatVideoHighCpuTreshold
+      - TomcatVideoScaleDownAdjustment
+      - TomcatVideoScaleUpAdjustment
+    - Label:
+        default: "Security Groups"
+      Parameters:
+      - OpsworksSecurityGroupId
+      - RtsSecurityGroupId
+      - TomcatSecurityGroupId
+      - TomcatVideoSecurityGroupId
+      - RedisSecurityGroupId
+      - RdsSecurityGroupId
+      - MemcacheSecurityGroupId
+      - EfsSecurityGroupId
+      - AlbSecurityGroupId
+      - RabbitMqSecurityGroupId
+    - Label:
+        default: "S3 Buckets"
+      Parameters:
+      - S3SharedBucket
+      - S3BatchReports
+      - S3BriefCaseBucket
+      - S3BuildsBucket
+    - Label:
+        default: "Route 53 Hosted Zones"
+      Parameters:
+      - Route53HostedZoneId
+
+Mappings:
+
+  AutoScalingConfig:
+    RtsConfig:
+      DownCooldown: 300
+      UpCooldown: 300
+      LowPerid: 300
+      HighPeriod: 300
+    TomcatConfig:
+      DownCooldown: 300
+      UpCooldown: 300
+      LowPerid: 300
+      HighPeriod: 300
+    TomcatVideo:
+      DownCooldown: 300
+      UpCooldown: 300
+      LowPerid: 300
+      HighPeriod: 300
+
+Resources:
+
+  LayersStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworks-layers.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        OpsworksStackId: !Ref OpsworksStackId
+        S3BuildBucketArn: !Ref S3BuildsBucket
+        S3SharedFilesArn: !Ref S3SharedBucket
+        S3BriefCaseArn: !Ref S3BriefCaseBucket
+        S3BatchReportArn: !Ref S3BatchReports
+        Route53HostedZoneId: !Ref Route53HostedZoneId
+        RtsSecurityGroup: !Ref RtsSecurityGroupId
+        OpsworksSecurityGroup: !Ref OpsworksSecurityGroupId
+        TomcatSecurityGroup: !Ref TomcatSecurityGroupId
+        RabbitSecurityGroup: !Ref RabbitMqSecurityGroupId
+        RedisSecurityGroup: !Ref RedisSecurityGroupId
+        TomcatVideoSecurityGroup: !Ref TomcatSecurityGroupId
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  TargetGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - LayersStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        VpcId: !Ref VpcId
+        AlbArn: !Ref AlbArn
+        AlbListenerArn: !Ref AlbListenerArn
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AutoScalingRts:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        VpcId: !Ref VpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
+        ImageId: !Ref RtsImageId
+        StackId: !Ref OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.RtsLayerId
+        SecurityGroupsIds: !Join [',', [!Ref OpsworksSecurityGroupId, !Ref RtsSecurityGroupId]]
+        InstanceType: !Ref RtsInstanceType
+        KeyName: !Ref SshKeyName
+        AvalabilityZones: 
+          !Join 
+          - ',' 
+          - - !GetAZs 
+              Ref: 'AWS::Region'
+        SubnetsIds: !Join [',', !Ref ApplicationSubnetsIds ]
+        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.RtsTg
+        DesiredCapacity: !Ref RtsDesiredCapacity
+        ScalingUpAdjustment: !Ref RtsScaleUpAdjustment
+        MaxSize: !Ref RtsMaxSize
+        MinSize: !Ref RtsMinSize
+        ScalingDownAdjustment: !Ref RtsScaleDownAdjustment
+        ScaleDownCooldown: !FindInMap [AutoScalingConfig, RtsConfig, UpCooldown]
+        ScaleUpCooldown: !FindInMap [AutoScalingConfig, RtsConfig, DownCooldown]
+        LowPeriod: !FindInMap [AutoScalingConfig, RtsConfig, LowPerid]
+        LowCpuTreshold: !Ref RtsLowCpuTreshold
+        HighPeriod: !FindInMap [AutoScalingConfig, RtsConfig, HighPeriod]
+        HighCpuTreshold: !Ref RtsHighCpuTreshold
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+Outputs:
+
+  RtsLayerId:
+    Description: rts layer id
+    Value: !GetAtt LayersStack.Outputs.RtsLayerId
+  
+  TomcatLayerId:
+    Description: tomcat layer id
+    Value: !GetAtt LayersStack.Outputs.TomcatLayerId
+
+  TomcatVideoLayerId:
+    Description: tomcat video layer id
+    Value: !GetAtt LayersStack.Outputs.TomcatVideoLayereId

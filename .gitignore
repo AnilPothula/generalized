@@ -8,3 +8,5 @@
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+Clients/6connex/*/*/*.json

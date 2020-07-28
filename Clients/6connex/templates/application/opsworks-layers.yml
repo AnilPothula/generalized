@@ -1,0 +1,429 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Adds Opsworks Layers
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Description: A name identifier to tag the opsworks layers resources
+  # ########## Opsworks Layers Parameters #########
+  OpsworksStackId:
+    Type: String
+    Description: Opsworks Stack where the layers will be added
+
+  S3BuildBucketArn:
+    Type: String
+    Description: ARN for the Builds bucket
+
+  S3SharedFilesArn:
+    Type: String
+    Description: ARN for the Shared bucket
+
+  S3BriefCaseArn:
+    Type: String
+    Description: ARN for the Brief Case bucket
+  
+  S3BatchReportArn:
+    Type: String
+    Description: ARN for the Batch report bucket
+
+  Route53HostedZoneId:
+    Type: String
+    Description: ARN for the hosted zone in Route 53
+
+  RtsSecurityGroup:
+    Type: String
+    Description: RTS security group
+
+  OpsworksSecurityGroup:
+    Type: String
+    Description: Opsworks security group
+
+  TomcatSecurityGroup:
+    Type: String
+    Description: Opsworks security group
+  
+  RabbitSecurityGroup:
+    Type: String
+    Description: RabbitMq security group 
+
+  RedisSecurityGroup:
+    Type: String
+    Description: Redis security group
+
+  TomcatVideoSecurityGroup:
+    Type: String
+    Description: Tomcat Video security group
+  # ########## Opsworks Layers Parameters #########
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Description: The name of the project to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+  ########################## OPSWORKS #################################
+  OpsworksRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Identifier}-${Environment}-ospworks-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-opsworks-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - opsworks:*
+              Resource: '*'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-opsworks-role
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  ########################## RTS ######################################
+  RtsEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Identifier}-${Environment}-rts-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-rts-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action: s3:*
+              Resource:
+              - !Ref S3BuildBucketArn
+              - !Sub ${S3BuildBucketArn}/*
+            - Effect: Allow
+              Action:
+              - route53:ChangeResourceRecordSets
+              - route53:GetHostedZone
+              - route53:ListResourceRecordSets
+              Resource:
+              - !Sub arn:aws:route53:::hostedzone/${Route53HostedZoneId}
+            - Effect: Allow
+              Action:
+              - '*'
+              Resource: '*'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rts-role
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  
+  RtsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Identifier}-${Environment}-rtsprofile
+      Path: /
+      Roles: 
+        - !Ref RtsEc2Role
+
+  RtsOpsworksLayer:
+    Type: AWS::OpsWorks::Layer
+    Properties:
+      StackId: !Ref OpsworksStackId
+      Name: !Sub ${Identifier}-${Environment}-rts
+      Type: custom
+      EnableAutoHealing: false
+      AutoAssignElasticIps: false
+      AutoAssignPublicIps: true 
+      CustomInstanceProfileArn: !GetAtt RtsInstanceProfile.Arn
+      CustomSecurityGroupIds:
+      - !Ref OpsworksSecurityGroup
+      - !Ref RtsSecurityGroup
+      CustomRecipes:
+        Setup:
+        - ops::rts
+        - ops-icinga2::client
+        Configure:
+        - ops::dns-add
+        Shutdown:
+        - ops::dns-delete
+      Shortname: !Sub ${Identifier}-${Environment}-rt
+      Tags:
+      - Key: NameLayer
+        Value: !Sub ${Identifier}-${Environment}-rts-layer
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  ########################## TOMCAT ######################################
+  TomcatEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Identifier}-${Environment}-tomcat-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-tomcat-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action: s3:*
+              Resource:
+              - !Ref S3BuildBucketArn
+              - !Sub ${S3BuildBucketArn}/*
+              - !Ref S3SharedFilesArn
+              - !Sub ${S3SharedFilesArn}/*
+              - !Ref S3BriefCaseArn
+              - !Sub ${S3BriefCaseArn}/*
+              - !Ref S3BatchReportArn
+              - !Sub ${S3BatchReportArn}/*
+            - Effect: Allow
+              Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              Resource:
+              - arn:aws:logs:*:*:*
+            - Effect: Allow
+              Action:
+              - '*'
+              Resource: '*'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-tomcat-role
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+  
+  TomcatInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Identifier}-${Environment}-tomcat-profile
+      Path: /
+      Roles: 
+        - !Ref TomcatEc2Role
+
+  TomcatOpsworksLayer:
+    Type: AWS::OpsWorks::Layer
+    Properties:
+      StackId: !Ref OpsworksStackId
+      Name: !Sub ${Identifier}-${Environment}-tomcat
+      Type: custom
+      EnableAutoHealing: false
+      AutoAssignElasticIps: false
+      AutoAssignPublicIps: true 
+      CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
+      CustomSecurityGroupIds:
+      - !Ref OpsworksSecurityGroup
+      - !Ref TomcatSecurityGroup
+      CustomRecipes:
+        Setup:
+        - ops::tomcat
+        - ops-icinga2::client
+      Shortname: !Sub ${Identifier}-${Environment}-tomcat
+      Tags:
+      - Key: NameLayer
+        Value: !Sub ${Identifier}-${Environment}-tomcat-layer
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  ########################## VIDEO ######################################
+  TomcatVideEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Identifier}-${Environment}-tomcatvideo-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-tomcatvideo-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - route53:ChangeResourceRecordSets
+              - route53:GetHostedZone
+              - route53:ListResourceRecordSets
+              Resource:
+              - !Sub arn:aws:route53:::hostedzone/${Route53HostedZoneId}
+            - Effect: Allow
+              Action:
+              - '*'
+              Resource: '*'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-tomcatvideo-role
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  TomcatVideoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Identifier}-${Environment}-tomcatvideo-profile
+      Path: /
+      Roles: 
+        - !Ref TomcatVideEc2Role
+
+  TomcatVideoOpsworksLayer:
+    Type: AWS::OpsWorks::Layer
+    Properties:
+      StackId: !Ref OpsworksStackId
+      Name: !Sub ${Identifier}-${Environment}-tomcatvideo
+      Type: custom
+      EnableAutoHealing: false
+      AutoAssignElasticIps: false
+      AutoAssignPublicIps: true 
+      CustomInstanceProfileArn: !GetAtt TomcatVideoInstanceProfile.Arn
+      CustomSecurityGroupIds:
+      - !Ref OpsworksSecurityGroup
+      - !Ref TomcatVideoSecurityGroup
+      CustomRecipes:
+        Setup:
+        - ops-icinga2::client
+      Shortname: !Sub ${Identifier}-${Environment}-tomcatvideo
+      Tags:
+      - Key: NameLayer
+        Value: !Sub ${Identifier}-${Environment}-tomcatvideo-layer
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  ########################## METRICS ######################################
+  MetricsOpsworksLayer:
+    Type: AWS::OpsWorks::Layer
+    Properties:
+      StackId: !Ref OpsworksStackId
+      Name: !Sub ${Identifier}-${Environment}-metrics
+      Type: custom
+      EnableAutoHealing: false
+      AutoAssignElasticIps: false
+      AutoAssignPublicIps: true 
+      CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
+      CustomSecurityGroupIds:
+      - !Ref OpsworksSecurityGroup
+      - !Ref TomcatVideoSecurityGroup
+      - !Ref RabbitSecurityGroup
+      CustomRecipes:
+        Setup:
+        - ops::metrics
+        - ops-icinga2::client
+      Shortname: !Sub ${Identifier}-${Environment}-metrics
+      Tags:
+      - Key: NameLayer
+        Value: !Sub ${Identifier}-${Environment}-metrics-layer
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+
+  RtsLayerId:
+    Description: Layer Id for the rts id
+    Value: !Ref RtsOpsworksLayer
+
+  TomcatLayerId:
+    Description: Layer id for the tomcat layer
+    Value: !Ref TomcatOpsworksLayer
+
+  TomcatVideoLayereId:
+    Description: Layere id for the tomcat video layer
+    Value: !Ref TomcatVideoOpsworksLayer
+
+  MetricsLayerId:
+    Description: Layer id for the metrics layer
+    Value: !Ref MetricsOpsworksLayer
+
+  OpsworksEc2RoleResource:
+    Description: Opsworks role
+    Value: !GetAtt OpsworksRole.Arn
+
+  RtsEc2RoleResource:
+    Description: rts role
+    Value: !GetAtt RtsEc2Role.Arn
+
+  TomcatEc2RoleResource:
+    Description: tomcat role
+    Value: !GetAtt TomcatEc2Role.Arn
+
+  TomcatVideEc2Role:
+    Description: tomcat video role
+    Value: !GetAtt TomcatVideEc2Role.Arn
+
+  RtsInstanceProfileArn:
+    Description: RTS Instance profile
+    Value: !GetAtt RtsInstanceProfile.Arn
+
+  TomcatInstanceProfileArn:
+    Description: Tomcat Instance Profile
+    Value: !GetAtt TomcatInstanceProfile.Arn
+
+  TomcatVideoInstanceProfileArn:
+    Description: Tomcat Video Instance Profile
+    Value: !GetAtt TomcatVideoInstanceProfile.Arn
+

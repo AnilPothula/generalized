@@ -1,0 +1,155 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  It creates 2 rds instances for infra - db6c and dw6c
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for the RDS instance
+  ################## general ##############################
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to host the RDS instance
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Ids to host the RDS instance
+  RdsSecurityGroup:
+    Type: String
+    Description: Security Group ID for the RDS Instace
+  ################## DB ##############################
+  UserDb:
+    Type: String
+    Description: Username for db6c database instance
+  PasswordDb:
+    Type: String
+    NoEcho: true
+    Description: Password for db6c database instance
+  ClassDb:
+    Type: String
+    Description: Class for db6c database instance
+  AllocatedStorageDb:
+    Type: String
+    Description: allocated Storage for db6c database instance
+  ################## DB ##############################
+  UserDw:
+    Type: String
+    Description: Username for dw6c database instance
+  PasswordDw:
+    Type: String
+    NoEcho: true
+    Description: Password for dw6c database instance
+  ClassDw:
+    Type: String
+    Description: Class for dw6c database instance
+  AllocatedStorageDw:
+    Type: String
+    Description: allocated Storage for dw6c database instance
+  MultiAz:
+    Type: String
+    Default: false
+    Description: creates a multi az dbs
+    AllowedValues:
+    - true
+    - false
+  ################## general ##############################
+  OwnerName:
+    Type: String
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the project to which these resources belong
+  Environment:
+    Type: String
+    Description: Environment name to append to resources names and tags
+
+Conditions:
+
+  IsProduction: !Equals [!Ref Environment, 'prod']
+
+Resources:
+  SubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      SubnetIds: !Ref SubnetIds
+      DBSubnetGroupName: !Sub ${Identifier}-${Environment}-subnetgroup
+      DBSubnetGroupDescription: !Sub Subnets available for ${Identifier}-${Environment} RDS
+
+  ParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Parameter Group for ${Identifier}-${Environment} - ${DbFamily}
+      Family: mysql5.6
+      Parameters:
+        log_bin_trust_function_creators: 1
+
+  DbInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - SubnetGroup
+      - ParameterGroup
+    Properties:
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-db6c
+      Engine: mysql
+      EngineVersion: 5.6.44
+      MultiAZ: !Ref MultiAz
+      StorageType: io1
+      Iops: 1000
+      BackupRetentionPeriod: 7
+      MasterUsername: !Ref UserDb
+      MasterUserPassword: !Ref PasswordDb
+      DBInstanceClass: !Ref ClassDb
+      AllocatedStorage: !Ref AllocatedStorageDb
+      DBParameterGroupName: !Ref ParameterGroup
+      VPCSecurityGroups:
+      - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref SubnetGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-db6c
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  DwInstance:
+    Type: AWS::RDS::DBInstance
+    Condition: IsProduction
+    DependsOn:
+      - SubnetGroup
+      - ParameterGroup
+    Properties:
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6c
+      Engine: mysql
+      EngineVersion: 5.6.44
+      MultiAZ: !Ref MultiAz
+      StorageType: io1
+      Iops: 1000
+      BackupRetentionPeriod: 7
+      MasterUsername: !Ref UserDw
+      MasterUserPassword: !Ref PasswordDw
+      DBInstanceClass: !Ref ClassDw
+      AllocatedStorage: !Ref AllocatedStorageDw
+      DBParameterGroupName: !Ref ParameterGroup
+      VPCSecurityGroups:
+      - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref SubnetGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-dw6c
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+Outputs:
+  DbEndpoint:
+    Description: db6c endpoint address
+    Value: !GetAtt DbInstance.Endpoint.Address
+
+  DwEndpoint:
+    Condition: IsProduction
+    Description: dw6c endpoint address
+    Value: !GetAtt DwInstance.Endpoint.Address

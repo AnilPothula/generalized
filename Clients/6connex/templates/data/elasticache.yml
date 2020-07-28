@@ -1,0 +1,115 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  It creates an elasticache cluster and a security group for the cluster.
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for the elasticache cluster
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to host the elasticache cluster
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Ids to host the elasticache cluster
+  ElastichCacheSecurityGroup:
+    Type: String
+    Description: ElastiCache SecurityGroup for the cluster
+  ElasticachePort:
+    Type: Number
+    Default: 6379
+    Description: Define the port to be used for Elasticache cluster
+  CacheNodeType:
+    Type: String
+    Default: cache.t2.small
+    Description: The compute and memory capacity of the nodes in the node group (shard).
+  CacheParameterGroupFamily:
+    Type: String
+    Default: redis5.0
+    Description: he name of the cache parameter group family that this cache parameter group is compatible with.
+    AllowedValues: [ redis2.6, redis2.8, redis3.2, redis4.0, redis5.0,  memcached1.5, memcached1.4]
+  ElasticacheEngine:
+    Type: String
+    Default: redis
+    Description: The name of the cache engine to be used for this cluster.
+  EngineVersion:
+    Type: String
+    Default: '5.0.6'
+    Description: The number of the version for the cache engine to be used for this cluster.
+  NumCacheNodes:
+    Type: Number
+    Default: 2
+    Description: The number of cache nodes that the cache cluster should have.
+  MultiAz:
+    Type: String
+    Default: cross-az
+    Description: Specifies whether the nodes in this Memcached cluster are created in a single Availability Zone or created across multiple Availability Zones in the cluster's region.
+  PreferredAvailabilityZones:
+    Type: List<String>
+    Default: 'us-east-1c,us-east-1f'
+    Description: A list of the Availability Zones in which cache nodes are created. The order of the zones in the list is not important.
+  PreferredMaintenanceWindow:
+    Type: String
+    Default: wed:10:00-wed:11:00
+    Description: Specifies the weekly time range during which maintenance on the cluster is performed.
+  # ############### Stack ##############
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Conditions:
+  # HasSourceSecurityGroup: !Not [ !Equals [ !Join [ ',', !Ref SourceSecurityGroupIds ], '' ] ]
+  IsMemcache: !Equals [!Ref ElasticacheEngine, 'memcached']
+Resources:
+  SubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub ${Identifier}-${Environment}-elasticache-subnetgroup
+      Description: Subnet group for the elasticache cluster
+      SubnetIds: !Ref SubnetIds
+  ParameterGroup:
+    Type: AWS::ElastiCache::ParameterGroup
+    Properties:
+      CacheParameterGroupFamily: !Ref CacheParameterGroupFamily
+      Description: Parameter group for the redis cluster
+  # ############## Elasticache Cluster ##############
+  CacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      AZMode: !If [IsMemcache, !Ref MultiAz, !Ref 'AWS::NoValue']
+      CacheNodeType: !Ref CacheNodeType
+      CacheParameterGroupName: !Ref ParameterGroup
+      CacheSubnetGroupName: !Ref SubnetGroup
+      ClusterName: !Sub ${Identifier}-${Environment}-elasticache-cluster
+      Engine: !Ref ElasticacheEngine
+      EngineVersion: !Ref EngineVersion
+      NumCacheNodes: !Ref NumCacheNodes
+      Port: !Ref ElasticachePort
+      PreferredAvailabilityZones: !If [IsMemcache, !Ref PreferredAvailabilityZones , !Ref 'AWS::NoValue']
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      VpcSecurityGroupIds:
+        - !Ref ElastichCacheSecurityGroup
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-elasticache-cluster
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+Outputs:
+  Cluster:
+    Description: The elasticache cluster id
+    Value: !Ref CacheCluster
+
+  ClusterEndPoint:
+    Description: cluster endpoint
+    Value: !GetAtt CacheCluster.ConfigurationEndpoint.Address

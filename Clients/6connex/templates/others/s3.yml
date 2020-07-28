@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Template to create S3 Buckets
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for S3 Bucket to be created
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Resources:
+  
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Identifier}-${Environment}-s3
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-s3
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+  BucketS3:
+    Description: s3 Bucket created by the Template
+    Value: !GetAtt S3Bucket.Arn

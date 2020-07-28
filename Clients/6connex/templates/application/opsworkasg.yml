@@ -1,0 +1,342 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Autoscaling group for opswork instances based on load.
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Default: 6connex
+    Description: A name identifier for the resources
+
+  VpcId:
+    Type: String
+    Description: vpc id
+
+  InstanceProfile:
+    Type: String
+    Description: Instance Profile to attach to the EC2 opswork instances
+
+  ImageId:
+    Type: String
+    Description: Amazon Linux image id
+
+  StackId:
+    Type: String
+    Description: Opswork stack id
+
+  LayerId:
+    Type: String
+    Description: Opswork layer id
+
+  # SecurityGroup:
+  #   Type: String
+  #   Description: Security group for the instances
+
+  SecurityGroupsIds:
+    Type: List<String>
+    Description: Security Ids to attach to LaunchTemplate
+
+  InstanceType:
+    Type: String
+    Default: t2.small
+    Description: Instance type
+
+  KeyName:
+    Type: String
+    Default: LuisKeyPair
+    Description: Keypair for the instances
+
+  AvalabilityZones:
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Description: List of avalability zones
+
+  SubnetsIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of avalability zones
+
+  TargetGroupArn:
+    Type: String
+    Default: ''
+    Description: Arn for the target group attached to the auto scaling group
+
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity
+
+  ScalingUpAdjustment:
+    Type: Number
+    Default: 1
+    Description: The amount by which to scale up.
+
+  MaxSize:
+    Type: Number
+    Default: 3
+    Description: Max instances
+
+  MinSize:
+    Type: Number
+    Default: 0
+    Description: Min instances
+
+  LowPeriod:
+    Type: Number
+    Default: 300
+    Description: Period in seconds to scale down
+
+  ScalingDownAdjustment:
+    Type: Number
+    Default: 1
+
+  ScaleDownCooldown:
+    Type: Number
+    Default: 300
+
+  ScaleUpCooldown:
+    Type: Number
+    Default: 300
+
+  LowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: Treshold to scale down
+
+  HighPeriod:
+    Type: Number
+    Default: 300
+    Description: Period in seconds to scale up
+
+  HighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: Threshold to scale up
+  # ############### Stack ##############
+
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Default: 6connex
+    Description: The name of the stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Conditions:
+  NoTargetGroup: !Equals [!Ref TargetGroupArn, '']
+
+Resources:
+
+  ############### lambda function ###############
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-deregister-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - ec2:DescribeInstances
+              - opsworks:DescribeInstances
+              - opsworks:DeregisterInstance
+              Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Identifier}-${Environment}-deregister-policy
+        - Key: OwnerName
+          Value: !Ref OwnerName
+        - Key: StackName
+          Value: !Ref ProjectName
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Identifier}-${Environment}-deregister-instance
+      Description: This function is responsible for deregistering an instance from your OpsWorks stack
+      Handler: index.lambda_handler
+      Role: !GetAtt [ FunctionRole, Arn ]
+      Runtime: python2.7
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+
+          def lambda_handler(event, context):
+              message = json.loads(event['Records'][0]['Sns']['Message'])
+
+              if (message['Event'] == 'autoscaling:EC2_INSTANCE_TERMINATE'):
+                  ec2_instance_id = message['EC2InstanceId']
+                  ec2 = boto3.client('ec2')
+                  for tag in ec2.describe_instances(InstanceIds=[ec2_instance_id])['Reservations'][0]['Instances'][0]['Tags']:
+                      if (tag['Key'] == 'opsworks_stack_id'):
+                          opsworks_stack_id = tag['Value']
+                          opsworks = boto3.client('opsworks', 'us-east-1')
+                          for instance in opsworks.describe_instances(StackId=opsworks_stack_id)['Instances']:
+                              if ('Ec2InstanceId' in instance):
+                                  if (instance['Ec2InstanceId'] == ec2_instance_id):
+                                      print("Deregistering OpsWorks instance " + instance['InstanceId'])
+                                      opsworks.deregister_instance(InstanceId=instance['InstanceId'])
+              return message
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-lambda-function
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SnsTopic
+      FunctionName: !GetAtt LambdaFunction.Arn
+  ############### SNS ###############
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${Identifier}-${Environment}-sns-topic
+      Subscription:
+      - Endpoint: !GetAtt LambdaFunction.Arn
+        Protocol: lambda
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-sns-topic
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${Identifier}-${Environment}-launchtemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !Ref InstanceProfile
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds: !Ref SecurityGroupsIds
+        # - !Ref SecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
+            #pip install --upgrade awscli
+            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
+            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${Identifier}-${Environment}-asg
+      AvailabilityZones: !Ref AvalabilityZones
+      DesiredCapacity: !Ref DesiredCapacity
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MaxSize: !Ref MaxSize
+      MinSize: !Ref MinSize
+      NotificationConfigurations:
+        - NotificationTypes:
+            - autoscaling:EC2_INSTANCE_TERMINATE
+          TopicARN: !Ref SnsTopic
+      TargetGroupARNs: !If [NoTargetGroup, !Ref 'AWS::NoValue', !Split [',', !Ref TargetGroupArn]]
+      VPCZoneIdentifier: !Ref SubnetsIds
+      Tags:
+      - Key: Name
+        PropagateAtLaunch: true
+        Value: !Sub ${Identifier}-${Environment}-asg
+      - Key: Owner
+        PropagateAtLaunch: true
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        PropagateAtLaunch: true
+        Value: !Ref ProjectName
+      - Key: Environment
+        PropagateAtLaunch: true
+        Value: !Ref Environment
+      - Key: opsworks_stack_id
+        PropagateAtLaunch: true
+        Value: !Ref StackId
+
+  #################### scaling policies ##############################
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      Cooldown: !Ref ScaleUpCooldown
+      ScalingAdjustment: !Ref ScalingUpAdjustment
+
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      Cooldown: !Ref ScaleDownCooldown
+      ScalingAdjustment: !Ref ScalingDownAdjustment
+
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub Scale-down if CPU < ${LowCpuTreshold}% for ${LowPeriod} seconds
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: !Ref LowPeriod
+      EvaluationPeriods: 2
+      Threshold: !Ref LowCpuTreshold
+      AlarmActions: [!Ref ScaleDownPolicy]
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref AutoScalingGroup
+      ComparisonOperator: LessThanThreshold
+
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub Scale-up if CPU > ${HighCpuTreshold}% for ${HighPeriod} minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: !Ref HighPeriod
+      EvaluationPeriods: 2
+      Threshold: !Ref HighCpuTreshold
+      AlarmActions: [!Ref ScaleUpPolicy]
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref AutoScalingGroup
+      ComparisonOperator: GreaterThanThreshold
+
+Outputs:
+
+  AutoScalingGroupResource:
+    Description: autoscaling group created
+    Value: !Ref AutoScalingGroup

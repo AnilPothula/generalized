@@ -1,0 +1,89 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Autoscaling group for opswork instances based on load.
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Default: 6connex
+    Description: A name identifier for the resources
+
+  VpcId:
+    Type: String
+    Description: vpc id
+
+  AlbArn:
+    Type: String
+    Description: Application Load balancer ARN
+
+  AlbListenerArn:
+    Type: String
+    Description: Application load balancer listener
+  
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Default: 6connex
+    Description: The name of the stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+
+  RtsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${Identifier}-${Environment}-rts-tg
+      VpcId: !Ref VpcId
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+      - Key: stickiness.enabled
+        Value: true
+      - Key: stickiness.lb_cookie.duration_seconds
+        Value: '7200'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rts-tg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  TomcatTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${Identifier}-${Environment}-tomcat-tg
+      Port: 80
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-tomcat-tg
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+  RtsTg:
+    Description: target group for rts
+    Value: !Ref RtsTargetGroup
+
+  TomcatTg:
+    Description: tomcat target group
+    Value: !Ref TomcatTargetGroup

@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Resources to create Opsworks Stacks
+
+Parameters:
+  
+  Identifier:
+    Type: String
+    Description: A name identifier to tag the opsworks resources
+
+  # ########## Opsworks Parameters #########
+  AgentVersion:
+    Type: String
+    Description: name of the agent to use for Opsworks
+
+  BerkshelfVersion:
+    Type: String
+    Description: Define a BerkshelfVersion for Opsworks Stack
+
+  ManageBerkshelf:
+    Type: String
+    Description: Deifine if it uses a manager BerkshelfVersion
+    AllowedValues:
+      - true
+      - false
+
+  ConfigurationManagerName:
+    Type: String
+    Description: Defines a configuration name for Opsworks
+    AllowedValues:
+      - Chef
+  
+  ConfigurationManagerVersion:
+    Type: String
+    Description: Defines ConfigurationManager Version
+    AllowedValues:
+      - '12'
+      - '11.10'
+      - '11.4'
+      - '0.9'
+
+  RepositoryType:
+    Type: String
+    Description: Defines the repository type for the cookbook
+    AllowedValues:
+      - archive
+      - git
+      - s3
+      - svn
+  
+  RepositoryUrl:
+    Type: String
+    Description: Defines the repository url where cookbooks are stored
+
+  DefaultOs:
+    Type: String
+    Description: Defines the Operating System for Opsworks
+    Default: Custom
+
+  DefaultRootDeviceType:
+    Type: String
+    Description: This value is the default for all instances in the stack, but you can override it when you create an instance
+    AllowedValues:
+      - ebs
+      - instance-store
+
+  DefaultSubnetId:
+    Type: String
+    Description: default subnet id for the OpsWorks Stack
+
+  HostnameTheme:
+    Type: String
+    Description: The stack's host name theme, with spaces replaced by underscores. The theme is used to generate host names for the stack's instances
+    AllowedValues:
+      - Layer_Dependent
+      - Baked_Goods
+      - Clouds
+      - Europe_Cities
+      - Fruits
+      - Greek_Deities_and_Titans
+      - Legendary_creatures_from_Japan
+      - Planets_and_Moons
+      - Roman_Deities
+      - Scottish_Islands
+      - US_Cities
+      - Wild_Cats
+    Default: Layer_Dependent
+
+  UseCustomCookbooks:
+    Type: String
+    Description: Defines if OpsWorks will use custom cookbook
+    AllowedValues:
+      - true
+      - false
+
+  VpcId:
+    Type: String
+    Description: VPC id where the OpsWorks stack will be created
+
+  DefaultSshKeyName:
+    Type: String
+    Description: KeyName to use for instances
+  
+  # ########## Opsworks Parameters #########
+  
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Description: The name of the project to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+
+  ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - opsworks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: opsworks-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ec2:*'
+                  - 'iam:PassRole'
+                  - 'cloudwatch:GetMetricStatistics'
+                  - 'elasticloadbalancing:*'
+                Resource: '*'
+
+  OpsworksStack:
+    Type: AWS::OpsWorks::Stack
+    Properties:
+      AgentVersion: !Ref AgentVersion
+      ChefConfiguration:
+        BerkshelfVersion: !Ref BerkshelfVersion
+        ManageBerkshelf: !Ref ManageBerkshelf
+      ConfigurationManager:
+        Name: !Ref ConfigurationManagerName
+        Version: !Ref ConfigurationManagerVersion
+      CustomCookbooksSource:
+        Type: !Ref RepositoryType
+        Url: !Ref RepositoryUrl
+      DefaultInstanceProfileArn: 
+        !Join 
+          - ''
+          - - 'arn:aws:iam::'
+            - !Ref 'AWS::AccountId'
+            - ':instance-profile/aws-opsworks-ec2-role'
+      DefaultOs: !Ref DefaultOs
+      DefaultRootDeviceType: !Ref DefaultRootDeviceType
+      DefaultSshKeyName: !Ref DefaultSshKeyName
+      DefaultSubnetId: !Ref DefaultSubnetId
+      HostnameTheme: !Ref HostnameTheme
+      Name: !Sub ${Identifier}-${Environment}-stack
+      ServiceRoleArn: !GetAtt ServiceRole.Arn
+      UseCustomCookbooks: !Ref UseCustomCookbooks
+      UseOpsworksSecurityGroups: false
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+      
+Outputs:
+
+  OpsworksStackId:
+    Description: Opsworks stack id
+    Value: !Ref OpsworksStack

@@ -1,0 +1,139 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  It creates an efs volume cluster and a the mount target for 6 subnets.
+  ​
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for the efs
+  Encrypted:
+    Type: String
+    Default: false
+    Description: A Boolean value that, if true, creates an encrypted file system
+  KmsKeyId:
+    Type: String
+    Default: ''
+    Description: The ID of the AWS KMS customer master key (CMK) to be used to protect the encrypted file system
+  PerformanceMode:
+    Type: String
+    Default: generalPurpose
+    Description: The performance mode of the file system. We recommend generalPurpose performance mode for most file systems
+    AllowedValues: ['generalPurpose','maxIO', '']
+  ProvisionedThroughputInMibps:
+    Type: Number
+    Default: 128
+    Description: The throughput, measured in MiB/s, that you want to provision for a file system that you're creating
+  ThroughputMode:
+    Type: String
+    Default: bursting
+    Description: The throughput mode for the file system to be created
+    AllowedValues: ['bursting','provisioned', '']
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Ids to host the elasticache cluster
+  EfsSecurityGroup:
+    Type: String
+    Description: EFS Security Group ID
+  # ############### Stack ##############
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Conditions:
+
+  IsKmsKeyNull: !Equals [ !Ref KmsKeyId, '' ]
+  IsThroughputProvisioned: !Equals [ !Ref ThroughputMode, 'provisioned']
+
+Resources:
+
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties: 
+      Encrypted: !Ref Encrypted
+      FileSystemTags: 
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-efs
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+      KmsKeyId: !If [ IsKmsKeyNull, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+      PerformanceMode: !Ref PerformanceMode
+      ThroughputMode: !Ref ThroughputMode
+      ProvisionedThroughputInMibps: !If [ IsThroughputProvisioned, !Ref ProvisionedThroughputInMibps, !Ref 'AWS::NoValue' ]
+  ############### Mount targets ##############
+  MountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref FileSystem
+      SecurityGroups: 
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 0, !Ref SubnetIds ]
+  MountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref FileSystem
+      SecurityGroups: 
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 1, !Ref SubnetIds ]
+  MountTarget3:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref FileSystem
+      SecurityGroups: 
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 2, !Ref SubnetIds ]
+  MountTarget4:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref FileSystem
+      SecurityGroups: 
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 3, !Ref SubnetIds ]
+  MountTarget5:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref FileSystem
+      SecurityGroups: 
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 4, !Ref SubnetIds ]
+  MountTarget6:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref FileSystem
+      SecurityGroups: 
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 5, !Ref SubnetIds ]
+Outputs:
+  FileSystemId:
+    Description: The ID of the EFS file system
+    Value: !Ref FileSystem
+  MountTargetId1:
+    Description: The ID of the EFS file system
+    Value: !Ref MountTarget1
+  MountTargetId2:
+    Description: The ID of the EFS file system
+    Value: !Ref MountTarget2
+  MountTargetId3:
+    Description: The ID of the EFS file system
+    Value: !Ref MountTarget3
+  MountTargetId4:
+    Description: The ID of the EFS file system
+    Value: !Ref MountTarget4
+  MountTargetId5:
+    Description: The ID of the EFS file system
+    Value: !Ref MountTarget5
+  MountTargetId6:
+    Description: The ID of the EFS file system
+    Value: !Ref MountTarget6
