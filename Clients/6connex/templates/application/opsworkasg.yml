@@ -31,10 +31,6 @@ Parameters:
     Type: String
     Description: Opswork layer id
 
-  # SecurityGroup:
-  #   Type: String
-  #   Description: Security group for the instances
-
   SecurityGroupsIds:
     Type: List<String>
     Description: Security Ids to attach to LaunchTemplate
@@ -62,15 +58,20 @@ Parameters:
     Default: ''
     Description: Arn for the target group attached to the auto scaling group
 
+  TargetGroupFullName:
+    Type: String
+    Default: ''
+    Description: target group full name
+
+  ApplicationLoadBalancerFullName:
+    Type: String
+    Default: ''
+    Description: Application load Balancer's full name
+
   DesiredCapacity:
     Type: Number
     Default: 2
     Description: Desired capacity
-
-  ScalingUpAdjustment:
-    Type: Number
-    Default: 1
-    Description: The amount by which to scale up.
 
   MaxSize:
     Type: Number
@@ -81,6 +82,21 @@ Parameters:
     Type: Number
     Default: 0
     Description: Min instances
+
+  NumberOfRequestsTargetValue:
+    Type: Number
+    Default: 0
+    Description: Target value for the number of requests completed per target in an Application Load Balancer target group
+
+  CpuAutoScalingTargetValue:
+    Type: Number
+    Default: 0
+    Description: Target value for the Average CPU utilization of the Auto Scaling group (Optional)
+
+  ScalingUpAdjustment:
+    Type: Number
+    Default: 1
+    Description: The amount by which to scale up.
 
   LowPeriod:
     Type: Number
@@ -113,7 +129,7 @@ Parameters:
     Type: Number
     Default: 80
     Description: Threshold to scale up
-  # ############### Stack ##############
+  ############### Stack ##############
 
   OwnerName:
     Type: String
@@ -132,7 +148,15 @@ Parameters:
 
 Conditions:
   NoTargetGroup: !Equals [!Ref TargetGroupArn, '']
-
+  NoCpuTargetPolicy: !Equals [!Ref CpuAutoScalingTargetValue, 0]
+  NoRequestTargetPolicy: !Equals [!Ref NumberOfRequestsTargetValue, 0]
+  CreateRequestsTargetPolicy: !And
+  - !Not [Condition: NoTargetGroup]
+  - !Not [Condition: NoRequestTargetPolicy]
+  CreateCpuTargetPolicy: !Not [ Condition: NoCpuTargetPolicy]
+  NoTargetTracking: !And
+  - !Not [Condition: CreateRequestsTargetPolicy]
+  - !Not [Condition: CreateCpuTargetPolicy]
 Resources:
 
   ############### lambda function ###############
@@ -287,8 +311,36 @@ Resources:
         Value: !Ref StackId
 
   #################### scaling policies ##############################
+  RequestsPerNodePolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Condition: CreateRequestsTargetPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Join
+            - '/'
+            - - !Ref ApplicationLoadBalancerFullName
+              - !Ref TargetGroupFullName
+        TargetValue: !Ref NumberOfRequestsTargetValue
+
+  CpuTargetPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Condition: CreateCpuTargetPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: !Ref CpuAutoScalingTargetValue
+
+
   ScaleUpPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
+    Condition: NoTargetTracking
     Properties:
       AdjustmentType: ChangeInCapacity
       AutoScalingGroupName: !Ref AutoScalingGroup
@@ -297,6 +349,7 @@ Resources:
 
   ScaleDownPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
+    Condition: NoTargetTracking
     Properties:
       AdjustmentType: ChangeInCapacity
       AutoScalingGroupName: !Ref AutoScalingGroup
@@ -305,6 +358,7 @@ Resources:
 
   CPUAlarmLow:
     Type: AWS::CloudWatch::Alarm
+    Condition: NoTargetTracking
     Properties:
       AlarmDescription: !Sub Scale-down if CPU < ${LowCpuTreshold}% for ${LowPeriod} seconds
       MetricName: CPUUtilization
@@ -321,6 +375,7 @@ Resources:
 
   CPUAlarmHigh:
     Type: AWS::CloudWatch::Alarm
+    Condition: NoTargetTracking
     Properties:
       AlarmDescription: !Sub Scale-up if CPU > ${HighCpuTreshold}% for ${HighPeriod} minutes
       MetricName: CPUUtilization

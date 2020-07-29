@@ -22,7 +22,7 @@ Parameters:
   AlbListenerArn:
     Type: String
     Description: Application load balancer listener
-  
+
   OwnerName:
     Type: String
     Default: nclouds
@@ -62,6 +62,20 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  RtsListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+      - Type: forward
+        TargetGroupArn: !Ref RtsTargetGroup
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+              - 'rts.6connex.com'
+      ListenerArn: !Ref AlbListenerArn
+      Priority: 2
+
   TomcatTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -79,11 +93,33 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  TomcatListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+      - Type: forward
+        TargetGroupArn: !Ref TomcatTargetGroup
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+              - 'tomcat.6connex.com'
+      ListenerArn: !Ref AlbListenerArn
+      Priority: 3
+
 Outputs:
   RtsTg:
     Description: target group for rts
     Value: !Ref RtsTargetGroup
 
+  RtsFullName:
+    Description: rts full name
+    Value: !GetAtt RtsTargetGroup.TargetGroupFullName
+
   TomcatTg:
     Description: tomcat target group
     Value: !Ref TomcatTargetGroup
+
+  TomcatFullName:
+    Description: tomcat full name
+    Value: !GetAtt TomcatTargetGroup.TargetGroupFullName

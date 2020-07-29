@@ -759,16 +759,11 @@ Resources:
         SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
         TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.TomcatTg
         DesiredCapacity: !Ref TomcatDesiredCapacity
-        ScalingUpAdjustment: !Ref TomcatScaleUpAdjustment
         MaxSize: !Ref TomcatMaxSize
         MinSize: !Ref TomcatMinSize
-        ScalingDownAdjustment: !Ref TomcatScaleDownAdjustment
-        ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatConfig, DownCooldown]
-        ScaleUpCooldown: !FindInMap [AutoScalingConfig, RtsConfig, UpCooldown]
-        LowPeriod: !FindInMap [AutoScalingConfig, RtsConfig, LowPerid]
-        LowCpuTreshold: !Ref TomcatLowCpuTreshold
-        HighPeriod: !FindInMap [AutoScalingConfig, RtsConfig, HighPeriod]
-        HighCpuTreshold: !Ref TomcatHighCpuTreshold
+        NumberOfRequestsTargetValue: 100
+        ApplicationLoadBalancerFullName: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
+        TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
