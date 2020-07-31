@@ -12,3 +12,4 @@ terraform.rc
 Clients/6connex/*/*/*.json
 .env
 context.xml
+config.js
