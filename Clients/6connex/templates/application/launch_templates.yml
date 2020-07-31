@@ -1,0 +1,85 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Autoscaling group for opswork instances based on load.
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Default: 6connex
+    Description: A name identifier for the resources
+
+  VpcId:
+    Type: String
+    Description: vpc id
+
+  InstanceProfile:
+    Type: String
+    Description: Instance Profile to attach to the EC2 opswork instances
+
+  ImageId:
+    Type: String
+    Description: Amazon Linux image id
+
+  StackId:
+    Type: String
+    Description: Opswork stack id
+
+  LayerId:
+    Type: String
+    Description: Opswork layer id
+
+  SecurityGroupsIds:
+    Type: List<String>
+    Description: Security Ids to attach to LaunchTemplate
+
+  InstanceType:
+    Type: String
+    Default: t2.small
+    Description: Instance type
+
+  KeyName:
+    Type: String
+    Default: LuisKeyPair
+    Description: Keypair for the instances
+  ############### Stack ##############
+
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Default: 6connex
+    Description: The name of the stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+
+  RtsLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${Identifier}-${Environment}-rts
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !Ref InstanceProfile
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds: !Ref SecurityGroupsIds
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
+            #pip install --upgrade awscli
+            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname rts$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
+            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+            

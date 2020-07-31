@@ -23,7 +23,11 @@ Parameters:
   S3BriefCaseArn:
     Type: String
     Description: ARN for the Brief Case bucket
-  
+
+  S3ConfigFiles:
+    Type: String
+    Description: ARN Of the bucket where configuration files are stored
+
   S3BatchReportArn:
     Type: String
     Description: ARN for the Batch report bucket
@@ -43,10 +47,10 @@ Parameters:
   TomcatSecurityGroup:
     Type: String
     Description: Opsworks security group
-  
+
   RabbitSecurityGroup:
     Type: String
-    Description: RabbitMq security group 
+    Description: RabbitMq security group
 
   RedisSecurityGroup:
     Type: String
@@ -127,6 +131,8 @@ Resources:
               Resource:
               - !Ref S3BuildBucketArn
               - !Sub ${S3BuildBucketArn}/*
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
             - Effect: Allow
               Action:
               - route53:ChangeResourceRecordSets
@@ -147,13 +153,13 @@ Resources:
         Value: !Ref ProjectName
       - Key: Environment
         Value: !Ref Environment
-  
+
   RtsInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: !Sub ${Identifier}-${Environment}-rtsprofile
       Path: /
-      Roles: 
+      Roles:
         - !Ref RtsEc2Role
 
   RtsOpsworksLayer:
@@ -164,7 +170,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt RtsInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -218,6 +224,8 @@ Resources:
               - !Sub ${S3BriefCaseArn}/*
               - !Ref S3BatchReportArn
               - !Sub ${S3BatchReportArn}/*
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
             - Effect: Allow
               Action:
               - logs:CreateLogGroup
@@ -239,13 +247,13 @@ Resources:
         Value: !Ref ProjectName
       - Key: Environment
         Value: !Ref Environment
-  
+
   TomcatInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: !Sub ${Identifier}-${Environment}-tomcat-profile
       Path: /
-      Roles: 
+      Roles:
         - !Ref TomcatEc2Role
 
   TomcatOpsworksLayer:
@@ -256,7 +264,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -303,6 +311,11 @@ Resources:
               Resource:
               - !Sub arn:aws:route53:::hostedzone/${Route53HostedZoneId}
             - Effect: Allow
+              Action: s3:*
+              Resource:
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
+            - Effect: Allow
               Action:
               - '*'
               Resource: '*'
@@ -321,7 +334,7 @@ Resources:
     Properties:
       InstanceProfileName: !Sub ${Identifier}-${Environment}-tomcatvideo-profile
       Path: /
-      Roles: 
+      Roles:
         - !Ref TomcatVideEc2Role
 
   TomcatVideoOpsworksLayer:
@@ -332,7 +345,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt TomcatVideoInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -360,7 +373,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -426,4 +439,3 @@ Outputs:
   TomcatVideoInstanceProfileArn:
     Description: Tomcat Video Instance Profile
     Value: !GetAtt TomcatVideoInstanceProfile.Arn
-

@@ -224,6 +224,10 @@ Parameters:
     Type: String
     Default: ''
     Description: Kms Key for Encryption
+  S3BuildsBucketName:
+    Type: String
+    Description: builds bucket name
+
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -235,6 +239,7 @@ Metadata:
       - S3BucketName
       - OwnerName
       - Environment
+      - S3BuildsBucketName
     - Label:
         default: "Network Configuration for the Environment"
       Parameters:
@@ -428,6 +433,8 @@ Metadata:
         default: "RDS MultiAz creation"
       KmsKeyId:
         default: KMS key for encryption (Optional)
+      S3BuildsBucketName:
+        default: Name of th S3 bucket containing the Builds Bucket
 
 Mappings:
 
@@ -455,7 +462,6 @@ Mappings:
       SharedFilesName: sharedfiles-download
       BatchReportsName: batch-export-reports
       BriefCaseName: briefcase-downloads
-      BuildsName: 6connex-builds
 
   AutoScalingConfig:
     RtsConfig:
@@ -707,20 +713,6 @@ Resources:
         Environment: !Ref Environment
         OwnerName: !Ref OwnerName
 
-  S3Builds:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/s3.yml"
-      Parameters:
-        Identifier:
-          !Sub
-            - "${BaseName}-${Id}"
-            - BaseName: !FindInMap [S3BucketsNames, !Ref 'AWS::Region', BuildsName]
-              Id: !Ref Identifier
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
-
   OpsworksStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -758,10 +750,11 @@ Resources:
       Parameters:
         Identifier: !Ref Identifier
         OpsworksStackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
-        S3BuildBucketArn: !GetAtt S3Builds.Outputs.BucketS3
+        S3BuildBucketArn: !Sub arn:aws:s3:::${S3BuildsBucketName}
         S3SharedFilesArn: !GetAtt S3Shared.Outputs.BucketS3
         S3BriefCaseArn: !GetAtt S3BriefCase.Outputs.BucketS3
         S3BatchReportArn: !GetAtt S3BatchReport.Outputs.BucketS3
+        S3ConfigFiles: !Sub arn:aws:s3:::${S3BucketName}
         Route53HostedZoneId: !Ref Route53HostedZoneId
         RtsSecurityGroup: !GetAtt SecurityGroups.Outputs.RtsSg
         OpsworksSecurityGroup: !GetAtt SecurityGroups.Outputs.OpsworksSg
@@ -994,10 +987,6 @@ Outputs:
   BatchReportArn:
     Description: S3 Batch Report ARN
     Value: !GetAtt S3BatchReport.Outputs.BucketS3
-
-  BuildsArn:
-    Description: S3 Builds ARN
-    Value: !GetAtt S3Builds.Outputs.BucketS3
 
   MemCacheEndpoint:
     Description: memcache endpoint address

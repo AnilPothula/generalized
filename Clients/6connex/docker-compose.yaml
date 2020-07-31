@@ -10,7 +10,7 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
     volumes:
       - ./:/home
-    command: bash -c 'aws s3 sync . s3://${S3BUCKET}/${ENVIRONMENT}/ --exclude "*" --include "*.yml" --delete'
+    command: bash -c 'aws s3 sync . s3://${S3BUCKET}/${ENVIRONMENT}/ --exclude "*" --include "prod.xml" --include "non-prod.xml" --exclude "*.xml" --include "*.yml" --include "*.sh" --delete'
 
   base_infra_create:
     build: ./
