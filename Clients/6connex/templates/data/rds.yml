@@ -30,6 +30,10 @@ Parameters:
   AllocatedStorageDb:
     Type: String
     Description: allocated Storage for db6c database instance
+  EncryptDb:
+    Type: String
+    Default: 'true'
+    Description: enables encryption on database
   ################## DB ##############################
   UserDw:
     Type: String
@@ -41,6 +45,10 @@ Parameters:
   ClassDw:
     Type: String
     Description: Class for dw6c database instance
+  EncryptDw:
+    Type: String
+    Default: 'true'
+    Description: enables encryption on database
   AllocatedStorageDw:
     Type: String
     Description: allocated Storage for dw6c database instance
@@ -52,6 +60,10 @@ Parameters:
     - true
     - false
   ################## general ##############################
+  KmsKeyId:
+    Type: String
+    Default: ''
+    Description: Kms key for encryption
   OwnerName:
     Type: String
     Description: An arbitrary tag name for the owner of these resources
@@ -65,6 +77,7 @@ Parameters:
 Conditions:
 
   IsProduction: !Equals [!Ref Environment, 'prod']
+  NoKmsKey: !Equals [!Ref KmsKeyId, '']
 
 Resources:
   SubnetGroup:
@@ -100,6 +113,8 @@ Resources:
       DBInstanceClass: !Ref ClassDb
       AllocatedStorage: !Ref AllocatedStorageDb
       DBParameterGroupName: !Ref ParameterGroup
+      StorageEncrypted: !Ref EncryptDb
+      KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
       - !Ref RdsSecurityGroup
       DBSubnetGroupName: !Ref SubnetGroup
@@ -132,6 +147,8 @@ Resources:
       DBInstanceClass: !Ref ClassDw
       AllocatedStorage: !Ref AllocatedStorageDw
       DBParameterGroupName: !Ref ParameterGroup
+      StorageEncrypted: !Ref EncryptDw
+      KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
       - !Ref RdsSecurityGroup
       DBSubnetGroupName: !Ref SubnetGroup

@@ -81,22 +81,14 @@ Parameters:
     Type: Number
     Default: 1
     Description: Minimum number of instances to have on the rts autoscaling group
-  RtsLowCpuTreshold:
+  RtsNumberRequestsPerNode:
     Type: Number
-    Default: 50
-    Description: cpu porcentage to scale down rts instances when CPU usage is low
-  RtsHighCpuTreshold:
+    Default: 0
+    Description: Target value for the number of requests completed per target in an Application Load Balancer target group
+  RtsCpuAverageTargetValue:
     Type: Number
-    Default: 80
-    Description: cpu porcentage to scale up rts instances when CPU usage is high
-  RtsScaleDownAdjustment:
-    Type: Number
-    Description: The amount by which to scale down
-    Default: -1
-  RtsScaleUpAdjustment:
-    Type: Number
-    Description: The amount by which to scale up
-    Default: 1
+    Default: 0
+    Description: Target value for the Average CPU utilization of the Auto Scaling group (Optional)
   #################################################################################
   TomcatImageId:
     Type: AWS::EC2::Image::Id
@@ -116,22 +108,14 @@ Parameters:
     Type: Number
     Default: 1
     Description: Minimum number of instances to have on the tomcat autoscaling group
-  TomcatLowCpuTreshold:
+  TomcatNumberRequestsPerNode:
     Type: Number
-    Default: 50
-    Description: cpu porcentage to scale down tomcat instances when CPU usage is low
-  TomcatHighCpuTreshold:
+    Default: 0
+    Description: Target value for the number of requests completed per target in an Application Load Balancer target group
+  TomcatCpuAverageTargetValue:
     Type: Number
-    Default: 80
-    Description: cpu porcentage to scale up tomcat instances when CPU usage is high
-  TomcatScaleDownAdjustment:
-    Type: Number
-    Description: The amount by which to scale down
-    Default: -1
-  TomcatScaleUpAdjustment:
-    Type: Number
-    Description: The amount by which to scale up
-    Default: 1
+    Default: 0
+    Description: Target value for the Average CPU utilization of the Auto Scaling group (Optional)
   #################################################################################
   TomcatVideoImageId:
     Type: AWS::EC2::Image::Id
@@ -236,6 +220,10 @@ Parameters:
     AllowedValues:
     - true
     - false
+  KmsKeyId:
+    Type: String
+    Default: ''
+    Description: Kms Key for Encryption
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -279,10 +267,7 @@ Metadata:
       - RtsDesiredCapacity
       - RtsMaxSize
       - RtsMinSize
-      - RtsLowCpuTreshold
-      - RtsHighCpuTreshold
-      - RtsScaleDownAdjustment
-      - RtsScaleUpAdjustment
+      - RtsCpuAverageTargetValue
     - Label:
         default: "Tomcat Autoscaling Configurations"
       Parameters:
@@ -291,10 +276,7 @@ Metadata:
       - TomcatDesiredCapacity
       - TomcatMaxSize
       - TomcatMinSize
-      - TomcatLowCpuTreshold
-      - TomcatHighCpuTreshold
-      - TomcatScaleDownAdjustment
-      - TomcatScaleUpAdjustment
+      - TomcatCpuAverageTargetValue
     - Label:
         default: "Tomcat Video Autoscaling Configurations"
       Parameters:
@@ -337,6 +319,10 @@ Metadata:
         default: "General RDS Configuration"
       Parameters:
       - RdsMultiAz
+    - Label:
+        default: "Encryption Configuration"
+      Parameters:
+      - KmsKeyId
     ParameterLabels:
       Identifier:
         default: 'Name to append to the resources'
@@ -378,14 +364,8 @@ Metadata:
         default: Maximum number of RTS instances for the autoscaling group
       RtsMinSize:
         default: Minimum number of RTS instances for the autoscaling group
-      RtsLowCpuTreshold:
-        default: CPU porcentage value to scale down instances on rts autoscaling
-      RtsHighCpuTreshold:
-        default: CPU porcentage value to scale up instances or rtas autoscaling
-      RtsScaleDownAdjustment:
-        default: How many instances to scale down (negative)
-      RtsScaleUpAdjustment:
-        default: How many instances to scale up (positive)
+      RtsCpuAverageTargetValue:
+        default: (Optional) CPU target value for RTS Auto Scaling
       TomcatImageId:
         default: Tomcat AMI to use
       TomcatInstanceType:
@@ -396,14 +376,8 @@ Metadata:
         default: Maximum number of Tomcat instances for the autoscaling group
       TomcatMinSize:
         default: Minimum number of Tomcat instances for the autoscaling group
-      TomcatLowCpuTreshold:
-        default: CPU porcentage value to scale down instances on tomcat autoscaling
-      TomcatHighCpuTreshold:
-        default: CPU porcentage value to scale up instances or tomcat autoscaling
-      TomcatScaleDownAdjustment:
-        default: How many instances to scale down (negative)
-      TomcatScaleUpAdjustment:
-        default: How many instances to scale up (positive)
+      TomcatCpuAverageTargetValue:
+        default: (Optional) CPU target value for Tomcat Auto scaling group
       TomcatVideoImageId:
         default: Tomcat Video AMI to use
       TomcatVideoInstanceType:
@@ -452,6 +426,8 @@ Metadata:
         default: Allocated Storage for DW RDS Instance
       RdsMultiAz:
         default: "RDS MultiAz creation"
+      KmsKeyId:
+        default: KMS key for encryption (Optional)
 
 Mappings:
 
@@ -502,7 +478,7 @@ Mappings:
     EfsConfig:
       PerformanceMode: generalPurpose
       ThroughputMode: bursting
-      Encrypted: 'false'
+      Encrypted: 'true'
     MemcacheConfig:
       CacheParameterGroupFamily: memcached1.4
       ElasticacheEngine: memcached
@@ -510,16 +486,20 @@ Mappings:
       EngineVersion: '1.4.14'
       MemcachePort: '11211'
     RedisConfig:
-      Encryptation: 'false'
+      Encryption: 'true'
+      EncryptionInTransit:  'true'
       CacheParameterGroupFamily: 'redis5.0'
       ElasticacheEngine: 'redis'
       EngineVersion: '5.0.6'
       MultiAzEnabled: 'true'
       RedisPort: '6379'
+    RdsConfig:
+      Encryption: 'true'
 
 Conditions:
 
   IsProduction: !Equals [!Ref Environment, 'prod']
+  NoKmsKey: !Equals [!Ref KmsKeyId, '']
 
 Resources:
 
@@ -557,6 +537,130 @@ Resources:
         VpcId: !GetAtt Network.Outputs.VpcId
         VpcCidr: !Ref VpcCidr
         MgmCidr: !Ref MgmCidr
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  EfsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/efs.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-efs
+        Encrypted: !FindInMap [DataStoreConfiguration, EfsConfig, Encrypted]
+        ## KMS
+        KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        PerformanceMode: !FindInMap [DataStoreConfiguration, EfsConfig, PerformanceMode]
+        ThroughputMode: !FindInMap [DataStoreConfiguration, EfsConfig, ThroughputMode]
+        ProvisionedThroughputInMibps: !Ref 'AWS::NoValue'
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        EfsSecurityGroup: !GetAtt SecurityGroups.Outputs.EfsSg
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  MemCacheClusterStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/elasticache.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-memcache
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.MemcaheSg
+        ElasticachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        CacheNodeType: !Ref MemcacheType
+        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, MemcacheConfig, CacheParameterGroupFamily]
+        ElasticacheEngine: !FindInMap [DataStoreConfiguration, MemcacheConfig, ElasticacheEngine]
+        EngineVersion: !FindInMap [DataStoreConfiguration, MemcacheConfig, EngineVersion]
+        NumCacheNodes: !Ref MemcacheNodes
+        MultiAz: !Ref MemcacheMultiAz
+        PreferredAvailabilityZones:
+          !If
+          - IsProduction
+          - !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+          - !Select
+            - 0
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  RedisReplicationCluster:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/redis.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-redis
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
+        ElasticachePort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        Encryption: !FindInMap [DataStoreConfiguration, RedisConfig, Encryption]
+        EncryptionInTransit: !FindInMap [DataStoreConfiguration, RedisConfig, EncryptionInTransit]
+        #KMS
+        KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        CacheNodeType: !Ref RedisType
+        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, RedisConfig, CacheParameterGroupFamily]
+        ElasticacheEngine: !FindInMap [DataStoreConfiguration, RedisConfig, ElasticacheEngine]
+        EngineVersion: !FindInMap [DataStoreConfiguration, RedisConfig, EngineVersion]
+        NumCacheClusters: !Ref RedisNodes
+        MultiAzEnabled: !Ref RedisMultiAz
+        PreferredAvailabilityZones:
+          !If
+          - IsProduction
+          - !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+          - !Join
+            - ','
+            - - !Select
+                - 0
+                - Fn::GetAZs: !Ref 'AWS::Region'
+              - !Select
+                - 1
+                - Fn::GetAZs: !Ref 'AWS::Region'
+        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  RdsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroups
+      - Network
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
+      Parameters:
+        Identifier: !Sub ${Identifier}-rds
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
+        RdsSecurityGroup: !GetAtt SecurityGroups.Outputs.RdsSg
+        UserDb: !Ref UserDb
+        PasswordDb: !Ref PasswordDb
+        ClassDb: !Ref ClassDb
+        EncryptDb: !FindInMap [DataStoreConfiguration, RdsConfig, Encryption]
+        AllocatedStorageDb: !Ref AllocatedStorageDb
+        UserDw: !Ref UserDw
+        PasswordDw: !Ref PasswordDw
+        ClassDw: !Ref ClassDw
+        EncryptDw: !FindInMap [DataStoreConfiguration, RdsConfig, Encryption]
+        AllocatedStorageDw: !Ref AllocatedStorageDw
+        MultiAz: !Ref RdsMultiAz
+        #KMS
+        KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -621,6 +725,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn:
     - Network
+    - SecurityGroups
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworks.yml"
       Parameters:
@@ -703,6 +808,10 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn:
     - TargetGroupsStack
+    - EfsStack
+    - RdsStack
+    - MemCacheClusterStack
+    - RedisReplicationCluster
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -722,16 +831,11 @@ Resources:
         SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
         TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.RtsTg
         DesiredCapacity: !Ref RtsDesiredCapacity
-        ScalingUpAdjustment: !Ref RtsScaleUpAdjustment
         MaxSize: !Ref RtsMaxSize
         MinSize: !Ref RtsMinSize
-        ScalingDownAdjustment: !Ref RtsScaleDownAdjustment
-        ScaleDownCooldown: !FindInMap [AutoScalingConfig, RtsConfig, DownCooldown]
-        ScaleUpCooldown: !FindInMap [AutoScalingConfig, RtsConfig, UpCooldown]
-        LowPeriod: !FindInMap [AutoScalingConfig, RtsConfig, LowPerid]
-        LowCpuTreshold: !Ref RtsLowCpuTreshold
-        HighPeriod: !FindInMap [AutoScalingConfig, RtsConfig, HighPeriod]
-        HighCpuTreshold: !Ref RtsHighCpuTreshold
+        NumberOfRequestsTargetValue: !Ref RtsNumberRequestsPerNode
+        ApplicationLoadBalancerFullName: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
+        TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -740,6 +844,10 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn:
     - TargetGroupsStack
+    - EfsStack
+    - RdsStack
+    - MemCacheClusterStack
+    - RedisReplicationCluster
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -761,7 +869,7 @@ Resources:
         DesiredCapacity: !Ref TomcatDesiredCapacity
         MaxSize: !Ref TomcatMaxSize
         MinSize: !Ref TomcatMinSize
-        NumberOfRequestsTargetValue: 100
+        NumberOfRequestsTargetValue: !Ref TomcatNumberRequestsPerNode
         ApplicationLoadBalancerFullName: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
         OwnerName: !Ref OwnerName
@@ -772,6 +880,10 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn:
     - TargetGroupsStack
+    - EfsStack
+    - RdsStack
+    - MemCacheClusterStack
+    - RedisReplicationCluster
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -801,122 +913,6 @@ Resources:
         LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
         HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
         HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
-  EfsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - SecurityGroups
-      - Network
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/efs.yml"
-      Parameters:
-        Identifier: !Sub ${Identifier}-efs
-        Encrypted: !FindInMap [DataStoreConfiguration, EfsConfig, Encrypted]
-        KmsKeyId: ''
-        PerformanceMode: !FindInMap [DataStoreConfiguration, EfsConfig, PerformanceMode]
-        ThroughputMode: !FindInMap [DataStoreConfiguration, EfsConfig, ThroughputMode]
-        ProvisionedThroughputInMibps: !Ref 'AWS::NoValue'
-        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
-        EfsSecurityGroup: !GetAtt SecurityGroups.Outputs.EfsSg
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
-  MemCacheClusterStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - SecurityGroups
-      - Network
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/elasticache.yml"
-      Parameters:
-        Identifier: !Sub ${Identifier}-memcache
-        VpcId: !GetAtt Network.Outputs.VpcId
-        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
-        ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.MemcaheSg
-        ElasticachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
-        CacheNodeType: !Ref MemcacheType
-        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, MemcacheConfig, CacheParameterGroupFamily]
-        ElasticacheEngine: !FindInMap [DataStoreConfiguration, MemcacheConfig, ElasticacheEngine]
-        EngineVersion: !FindInMap [DataStoreConfiguration, MemcacheConfig, EngineVersion]
-        NumCacheNodes: !Ref MemcacheNodes
-        MultiAz: !Ref MemcacheMultiAz
-        PreferredAvailabilityZones:
-          !If
-          - IsProduction
-          - !Join
-            - ','
-            - Fn::GetAZs: !Ref 'AWS::Region'
-          - !Select
-            - 0
-            - Fn::GetAZs: !Ref 'AWS::Region'
-        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
-  RedisReplicationCluster:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - SecurityGroups
-      - Network
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/redis.yml"
-      Parameters:
-        Identifier: !Sub ${Identifier}-redis
-        VpcId: !GetAtt Network.Outputs.VpcId
-        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
-        ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
-        ElasticachePort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        Encryptation: !FindInMap [DataStoreConfiguration, RedisConfig, Encryptation]
-        CacheNodeType: !Ref RedisType
-        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, RedisConfig, CacheParameterGroupFamily]
-        ElasticacheEngine: !FindInMap [DataStoreConfiguration, RedisConfig, ElasticacheEngine]
-        EngineVersion: !FindInMap [DataStoreConfiguration, RedisConfig, EngineVersion]
-        NumCacheClusters: !Ref RedisNodes
-        MultiAzEnabled: !Ref RedisMultiAz
-        PreferredAvailabilityZones:
-          !If
-          - IsProduction
-          - !Join
-            - ','
-            - Fn::GetAZs: !Ref 'AWS::Region'
-          - !Join
-            - ','
-            - - !Select
-                - 0
-                - Fn::GetAZs: !Ref 'AWS::Region'
-              - !Select
-                - 1
-                - Fn::GetAZs: !Ref 'AWS::Region'
-        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
-  RdsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - SecurityGroups
-      - Network
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
-      Parameters:
-        Identifier: !Sub ${Identifier}-rds
-        VpcId: !GetAtt Network.Outputs.VpcId
-        SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
-        RdsSecurityGroup: !GetAtt SecurityGroups.Outputs.RdsSg
-        UserDb: !Ref UserDb
-        PasswordDb: !Ref PasswordDb
-        ClassDb: !Ref ClassDb
-        AllocatedStorageDb: !Ref AllocatedStorageDb
-        UserDw: !Ref UserDw
-        PasswordDw: !Ref PasswordDw
-        ClassDw: !Ref ClassDw
-        AllocatedStorageDw: !Ref AllocatedStorageDw
-        MultiAz: !Ref RdsMultiAz
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
