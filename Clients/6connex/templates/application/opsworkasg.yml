@@ -11,6 +11,73 @@ Parameters:
     Default: 6connex
     Description: A name identifier for the resources
 
+  S3ConfigFiles:
+    Type: String
+    Description: S3 Bucket to download configuration files
+
+  DbEndpoint:
+    Type: String
+    Default: ''
+    Description: db endpoint value
+
+  DbCredentialsId:
+    Type: String
+    Default: ''
+    Description: db credentials secret
+
+  DwEndpoint:
+    Type: String
+    Default: ''
+    Description: dw endpoint value
+
+  DwCredentialsId:
+    Type: String
+    Default: ''
+    Description: dw user
+  
+  EfsEndpoint:
+    Type: String
+    Default: ''
+    Description: efs endpoint value
+
+  RedisEndpoint:
+    Type: String
+    Default: ''
+    Description: redis endpoint
+  
+  RedisPort:
+    Type: Number
+    Default: 0
+    Description: redis port
+
+  RabbitMqHost:
+    Type: String
+    Default: ''
+    Description: rabbit mq host 
+
+  RabbitMqPort:
+    Type: Number
+    Default: 0
+    Description: rabbit mq port to use
+    
+  RabbitCredentials:
+    Type: String
+    Default: ''
+    Description: rabbit mq credentials
+
+  MemcacheClusterId:
+    Type: String
+    Default: ''
+    Description: memcache cluster id
+
+  ConfigurationType:
+    Type: String
+    Default: 'rts'
+    Description: type of configuration for files
+    AllowedValues:
+    - rts
+    - tomcat
+
   VpcId:
     Type: String
     Description: vpc id
@@ -271,10 +338,43 @@ Resources:
             #!/bin/bash
             sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
             #pip install --upgrade awscli
-            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            
+            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile sudo yum install -y jq--infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
             /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
             /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+            /usr/bin/aws configure set default.region ${AWS::Region}
 
+            echo "ssm agent"
+            sudo start amazon-ssm-agent
+
+            sudo yum install -y jq
+
+            export USER_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .username)
+            export PASSWORD_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .password)
+            export DB_ENDPOINT=${DbEndpoint}
+
+            export USER_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .username)
+            export PASSWORD_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .password)
+            export DW_ENDPOINT=${DwEndpoint}
+
+            export REDIS_ENDPOINT=${RedisEndpoint}
+            export REDIS_PORT=${RedisPort}
+
+            export RABBITMQ_HOST=${RabbitMqHost}
+            export RABBITMQ_PORT=${RabbitMqPort}
+            export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username)
+            export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password)
+
+            export REGION=${AWS::Region}
+            export MEMCACHE_CLUSTER=${MemcacheClusterId}
+
+            export CONF_TYPE=${ConfigurationType}
+            export ENV=${Environment}
+
+            echo "configuration files"
+            sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files .
+            sudo sh configuration.sh.template
+            cat configuration.sh.template
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup

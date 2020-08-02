@@ -95,11 +95,28 @@ Resources:
       Parameters:
         log_bin_trust_function_creators: 1
 
+  DbCredentialsSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: !Sub Db credentials secret in env ${Environment}
+      Name: !Sub database/${Environment}/DbCredentials
+      SecretString: !Sub '{"username":"${UserDb}","password":"${PasswordDb}"}'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-db-credentials
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
   DbInstance:
     Type: AWS::RDS::DBInstance
     DependsOn:
       - SubnetGroup
       - ParameterGroup
+      - DbCredentialsSecrets
     Properties:
       DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-db6c
       Engine: mysql
@@ -108,8 +125,8 @@ Resources:
       StorageType: io1
       Iops: 1000
       BackupRetentionPeriod: 7
-      MasterUsername: !Ref UserDb
-      MasterUserPassword: !Ref PasswordDb
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DbCredentialsSecrets}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DbCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDb
       AllocatedStorage: !Ref AllocatedStorageDb
       DBParameterGroupName: !Ref ParameterGroup
@@ -128,12 +145,29 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  DwCredentialsSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: !Sub Dw credentials secret in env ${Environment}
+      Name: !Sub database/${Environment}/DwCredentials
+      SecretString: !Sub '{"username":"${UserDw}","password":"${PasswordDw}"}'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-dw-credentials
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
   DwInstance:
     Type: AWS::RDS::DBInstance
     Condition: IsProduction
     DependsOn:
       - SubnetGroup
       - ParameterGroup
+      - DwCredentialsSecrets
     Properties:
       DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6c
       Engine: mysql
@@ -142,8 +176,8 @@ Resources:
       StorageType: io1
       Iops: 1000
       BackupRetentionPeriod: 7
-      MasterUsername: !Ref UserDw
-      MasterUserPassword: !Ref PasswordDw
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DwCredentialsSecrets}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DwCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDw
       AllocatedStorage: !Ref AllocatedStorageDw
       DBParameterGroupName: !Ref ParameterGroup

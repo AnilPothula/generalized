@@ -227,6 +227,13 @@ Parameters:
   S3BuildsBucketName:
     Type: String
     Description: builds bucket name
+  RabbitMqPassword:
+    Type: String
+    NoEcho: true
+    Description: rabbit mq password
+  RabbitMqUsername:
+    Type: String
+    Description: rabbit mq username
 
 
 Metadata:
@@ -328,6 +335,11 @@ Metadata:
         default: "Encryption Configuration"
       Parameters:
       - KmsKeyId
+    - Label:
+        default: "Rabbit MQ Configuration"
+      Parameters:
+      - RabbitMqPassword
+      - RabbitMqUsername
     ParameterLabels:
       Identifier:
         default: 'Name to append to the resources'
@@ -435,6 +447,10 @@ Metadata:
         default: KMS key for encryption (Optional)
       S3BuildsBucketName:
         default: Name of th S3 bucket containing the Builds Bucket
+      RabbitMqPassword:
+        default: Rabbit MQ password configuration
+      RabbitMqUsername:
+        default: Rabbit MQ username configuration
 
 Mappings:
 
@@ -647,6 +663,7 @@ Resources:
     DependsOn:
       - SecurityGroups
       - Network
+      - SecretsStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
       Parameters:
@@ -809,6 +826,7 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
         Identifier: !Sub ${Identifier}-rts
+        S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
         ImageId: !Ref RtsImageId
@@ -845,6 +863,7 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
         Identifier: !Sub ${Identifier}-tomcat
+        S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
         ImageId: !Ref TomcatImageId
@@ -881,6 +900,7 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
         Identifier: !Sub ${Identifier}-tomcatvideo
+        S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn
         ImageId: !Ref TomcatVideoImageId

@@ -121,6 +121,9 @@ Resources:
             - ec2.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
       Policies:
         - PolicyName: !Sub ${Identifier}-${Environment}-rts-policy
           PolicyDocument:
@@ -134,6 +137,10 @@ Resources:
               - !Ref S3ConfigFiles
               - !Sub ${S3ConfigFiles}/*
             - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
+            - Effect: Allow
               Action:
               - route53:ChangeResourceRecordSets
               - route53:GetHostedZone
@@ -142,7 +149,7 @@ Resources:
               - !Sub arn:aws:route53:::hostedzone/${Route53HostedZoneId}
             - Effect: Allow
               Action:
-              - '*'
+              - opsworks:*
               Resource: '*'
       Tags:
       - Key: Name
@@ -208,6 +215,9 @@ Resources:
             - ec2.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
       Policies:
         - PolicyName: !Sub ${Identifier}-${Environment}-tomcat-policy
           PolicyDocument:
@@ -227,6 +237,10 @@ Resources:
               - !Ref S3ConfigFiles
               - !Sub ${S3ConfigFiles}/*
             - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
+            - Effect: Allow
               Action:
               - logs:CreateLogGroup
               - logs:CreateLogStream
@@ -236,7 +250,7 @@ Resources:
               - arn:aws:logs:*:*:*
             - Effect: Allow
               Action:
-              - '*'
+              - opsworks:*
               Resource: '*'
       Tags:
       - Key: Name
@@ -298,6 +312,9 @@ Resources:
             - ec2.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
       Policies:
         - PolicyName: !Sub ${Identifier}-${Environment}-tomcatvideo-policy
           PolicyDocument:
@@ -316,8 +333,12 @@ Resources:
               - !Ref S3ConfigFiles
               - !Sub ${S3ConfigFiles}/*
             - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
+            - Effect: Allow
               Action:
-              - '*'
+              - opsworks:*
               Resource: '*'
       Tags:
       - Key: Name
@@ -365,6 +386,50 @@ Resources:
         Value: !Ref Environment
 
   ########################## METRICS ######################################
+  MetricsEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Identifier}-${Environment}-metrics-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-metrics-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action: s3:*
+              Resource:
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
+            - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
+            - Effect: Allow
+              Action:
+              - opsworks:*
+              Resource: '*'
+
+
+  MetricsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Identifier}-${Environment}-metrics-profile
+      Path: /
+      Roles:
+        - !Ref MetricsEc2Role
+
   MetricsOpsworksLayer:
     Type: AWS::OpsWorks::Layer
     Properties:
@@ -374,7 +439,7 @@ Resources:
       EnableAutoHealing: false
       AutoAssignElasticIps: false
       AutoAssignPublicIps: true
-      CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
+      CustomInstanceProfileArn: !GetAtt MetricsInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
       - !Ref TomcatVideoSecurityGroup

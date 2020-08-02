@@ -22,12 +22,12 @@ then
   then
     echo "============================================================"
     echo " >>>>> using prod.xml"
-    cp files/prod.xml context.xml
+    cp files/prod.xml.template context.xml
     echo "============================================================"
   else
     echo "============================================================"
     echo " >>>>> using non-prod.xml"
-    cp files/non-prod.xml context.xml
+    cp files/non-prod.xml.template context.xml
     echo "============================================================"
   fi
   echo "============================================================"
@@ -83,7 +83,7 @@ if [ $CONF_TYPE = 'rts' ]
 then
   echo "============================================================"
   echo " >>>>> using config.js"
-  cp files/rts_conf.js config.js
+  cp files/rts_conf.js.template config.js
   echo "============================================================"
 
   echo "============================================================"
