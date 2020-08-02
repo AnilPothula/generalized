@@ -118,7 +118,7 @@ Resources:
       - ParameterGroup
       - DbCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-db6c
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-db6C
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
@@ -169,7 +169,7 @@ Resources:
       - ParameterGroup
       - DwCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6c
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6C
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz

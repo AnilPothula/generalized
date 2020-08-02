@@ -2,7 +2,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: >-
-  Autoscaling group for opswork instances based on load.
+  Autoscaling group for opsworks
 
 Parameters:
 
@@ -20,20 +20,10 @@ Parameters:
     Default: ''
     Description: db endpoint value
 
-  DbCredentialsId:
-    Type: String
-    Default: ''
-    Description: db credentials secret
-
   DwEndpoint:
     Type: String
     Default: ''
     Description: dw endpoint value
-
-  DwCredentialsId:
-    Type: String
-    Default: ''
-    Description: dw user
   
   EfsEndpoint:
     Type: String
@@ -59,11 +49,6 @@ Parameters:
     Type: Number
     Default: 0
     Description: rabbit mq port to use
-    
-  RabbitCredentials:
-    Type: String
-    Default: ''
-    Description: rabbit mq credentials
 
   MemcacheClusterId:
     Type: String
@@ -76,7 +61,7 @@ Parameters:
     Description: type of configuration for files
     AllowedValues:
     - rts
-    - tomcat
+    - other
 
   VpcId:
     Type: String

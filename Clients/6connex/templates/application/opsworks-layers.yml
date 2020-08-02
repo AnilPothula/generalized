@@ -493,6 +493,10 @@ Outputs:
     Description: tomcat video role
     Value: !GetAtt TomcatVideEc2Role.Arn
 
+  MetricsEc2Role:
+    Description: metrics ec2 role
+    Value: !GetAtt MetricsEc2Role.Arn
+
   RtsInstanceProfileArn:
     Description: RTS Instance profile
     Value: !GetAtt RtsInstanceProfile.Arn
@@ -504,3 +508,7 @@ Outputs:
   TomcatVideoInstanceProfileArn:
     Description: Tomcat Video Instance Profile
     Value: !GetAtt TomcatVideoInstanceProfile.Arn
+
+  MetricsInstanceProfile:
+    Description: Metrics node instance profile
+    Value: !GetAtt MetricsInstanceProfile.Arn

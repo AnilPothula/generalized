@@ -234,6 +234,13 @@ Parameters:
   RabbitMqUsername:
     Type: String
     Description: rabbit mq username
+  MetricsImageId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI to use for metrics node
+  MetricsNodeType:
+    Type: String
+    Description: Metrics node type
+
 
 
 Metadata:
@@ -340,6 +347,8 @@ Metadata:
       Parameters:
       - RabbitMqPassword
       - RabbitMqUsername
+      - MetricsImageId
+      - MetricsNodeType
     ParameterLabels:
       Identifier:
         default: 'Name to append to the resources'
@@ -451,6 +460,10 @@ Metadata:
         default: Rabbit MQ password configuration
       RabbitMqUsername:
         default: Rabbit MQ username configuration
+      MetricsImageId:
+        default: Metrics node image id
+      MetricsNodeType:
+        default: Metrics Instance Type
 
 Mappings:
 
@@ -481,20 +494,24 @@ Mappings:
 
   AutoScalingConfig:
     RtsConfig:
-      DownCooldown: 300
-      UpCooldown: 300
-      LowPerid: 300
-      HighPeriod: 300
+      DownCooldown: '300'
+      UpCooldown: '300'
+      LowPerid: '300'
+      HighPeriod: '300'
     TomcatConfig:
-      DownCooldown: 300
-      UpCooldown: 300
-      LowPerid: 300
-      HighPeriod: 300
+      DownCooldown: '300'
+      UpCooldown: '300'
+      LowPerid: '300'
+      HighPeriod: '300'
     TomcatVideo:
-      DownCooldown: 300
-      UpCooldown: 300
-      LowPerid: 300
-      HighPeriod: 300
+      DownCooldown: '300'
+      UpCooldown: '300'
+      LowPerid: '300'
+      HighPeriod: '300'
+
+  MetricsNodeConfiguration:
+    MetricsDefaults:
+      Port: '5672'
 
   DataStoreConfiguration:
     EfsConfig:
@@ -814,6 +831,40 @@ Resources:
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
+  MetricsNodeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - LayersStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        ImageId: !Ref MetricsImageId
+        StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
+        InstanceProfile: !GetAtt LayersStack.Outputs.MetricsInstanceProfile
+        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.RabbitMqSecurityGroup, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
+        InstanceType: !Ref MetricsNodeType
+        KeyName: !Ref DefaultSshKeyName
+        SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        EfsEndpoint: 
+          !Sub 
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        RabbitMqUser: !Ref RabbitMqUsername
+        RabbitMqPassword: !Ref RabbitMqPassword
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: other
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
   AutoScalingRts:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -822,6 +873,7 @@ Resources:
     - RdsStack
     - MemCacheClusterStack
     - RedisReplicationCluster
+    - MetricsNodeStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -847,6 +899,21 @@ Resources:
         NumberOfRequestsTargetValue: !Ref RtsNumberRequestsPerNode
         ApplicationLoadBalancerFullName: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
+
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        EfsEndpoint: 
+          !Sub 
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: other
+        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -859,6 +926,7 @@ Resources:
     - RdsStack
     - MemCacheClusterStack
     - RedisReplicationCluster
+    - MetricsNodeStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -884,6 +952,21 @@ Resources:
         NumberOfRequestsTargetValue: !Ref TomcatNumberRequestsPerNode
         ApplicationLoadBalancerFullName: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
+        
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        EfsEndpoint: 
+          !Sub 
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: other
+        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -896,6 +979,7 @@ Resources:
     - RdsStack
     - MemCacheClusterStack
     - RedisReplicationCluster
+    - MetricsNodeStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -915,6 +999,21 @@ Resources:
             - Fn::GetAZs: !Ref 'AWS::Region'
         SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
         TargetGroupArn: !Ref 'AWS::NoValue'
+
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        EfsEndpoint: 
+          !Sub 
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: other
+        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !Ref TomcatVideoScaleUpAdjustment
         MaxSize: !Ref TomcatVideoMaxSize

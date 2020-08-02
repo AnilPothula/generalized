@@ -1,0 +1,176 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Autoscaling group for opsworks
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Default: 6connex
+    Description: A name identifier for the resources
+
+  ImageId:
+    Type: String
+    Description: Amazon Linux image id
+
+  StackId:
+    Type: String
+    Description: Opswork stack id
+
+  LayerId:
+    Type: String
+    Description: Opswork layer id
+
+  InstanceProfile:
+    Type: String
+    Description: Instance Profile to attach to the EC2 opswork instances
+
+  SecurityGroupsIds:
+    Type: List<String>
+    Description: Security Ids to attach to LaunchTemplate
+
+  InstanceType:
+    Type: String
+    Default: t2.small
+    Description: Instance type
+
+  KeyName:
+    Type: String
+    Default: LuisKeyPair
+    Description: Keypair for the instances
+
+  SubnetsIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of avalability zones
+
+  S3ConfigFiles:
+    Type: String
+    Description: S3 Bucket to download configuration files
+
+  DbEndpoint:
+    Type: String
+    Default: ''
+    Description: db endpoint value
+
+  DwEndpoint:
+    Type: String
+    Default: ''
+    Description: dw endpoint value
+  
+  EfsEndpoint:
+    Type: String
+    Default: ''
+    Description: efs endpoint value
+
+  RedisEndpoint:
+    Type: String
+    Default: ''
+    Description: redis endpoint
+  
+  RedisPort:
+    Type: Number
+    Default: 0
+    Description: redis port
+
+  RabbitMqUser:
+    Type: String
+    Description: rabbit mq user
+
+  RabbitMqPassword:
+    Type: String
+    NoEcho: true
+    Description: rabbit mq password
+
+  RabbitMqPort:
+    Type: Number
+    Default: 0
+    Description: rabbit mq port to use
+
+  MemcacheClusterId:
+    Type: String
+    Default: ''
+    Description: memcache cluster id
+
+  ConfigurationType:
+    Type: String
+    Default: 'rts'
+    Description: type of configuration for files
+    AllowedValues:
+    - rts
+    - other
+
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Default: 6connex
+    Description: The name of the stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+
+Resources:
+
+  RabbitMqCredentialsSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: !Sub rabbit mq credentials in env ${Environment}
+      Name: !Sub metrics/${Environment}/RabbitmqCredentials
+      SecretString: !Sub '{"username":"${RabbitMqUser}","password":"${RabbitMqPassword}"}'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-rabbitmq-credentials
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  MetricsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref InstanceProfile
+      InstanceType: !Ref InstanceType
+      SecurityGroupIds: !Ref SecurityGroupIds
+      SubnetId: !Select [ 0, !Ref SubnetsIds ]
+      UserData:
+        Fn::Base64: !Sub |
+            #!/bin/bash
+            sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
+            #pip install --upgrade awscli
+            
+            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile sudo yum install -y jq--infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
+            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+            /usr/bin/aws configure set default.region ${AWS::Region}
+            ## PENDS CONFIGURATION ...
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-metricsnode
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+Outputs:
+
+  MetricsNodeIp:
+    Description: metrics node ip
+    Value: !GetAtt MetricsInstance.PrivateIp
+
+  MetricsNodeInstanceId:
+    Description: metrics node instace id
+    Value: !Ref MetricsInstance

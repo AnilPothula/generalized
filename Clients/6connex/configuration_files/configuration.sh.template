@@ -16,7 +16,7 @@ MEMCACHE_CLUSTER=us-prod
 
 CONF_TYPE=rts
 
-if [ $CONF_TYPE = 'tomcat' ]
+if [ $CONF_TYPE = 'other' ]
 then
   if [ $ENV = "prod" ]
   then
