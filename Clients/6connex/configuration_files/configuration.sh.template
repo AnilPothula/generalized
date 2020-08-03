@@ -1,21 +1,3 @@
-USER_DB=ricardo
-PASSWORD_DB=12345
-DB_ENDPOINT=www.db.com
-USER_DW=ricardo2
-PASSWORD_DW=12345
-DW_ENDPOINT=www.dw.com
-REDIS_ENDPOINT=www.redis.com
-REDIS_PORT=1234
-RABBITMQ_HOST=www.rabbit.com
-RABBITMQ_PORT=3456
-RABBITMQ_USER=rabituser
-RABBITMQ_PASSWORD=rabbitpass
-
-REGION=us-west-1
-MEMCACHE_CLUSTER=us-prod
-
-CONF_TYPE=rts
-
 if [ $CONF_TYPE = 'other' ]
 then
   if [ $ENV = "prod" ]
@@ -60,7 +42,7 @@ then
 
   echo "============================================================"
   echo " >>>>> Configuring Memcache Endpoints"
-  MEMCACHENODES=$(aws elasticache describe-cache-clusters --region $REGION --cache-cluster-id $MEMCACHE_CLUSTER --show-cache-node-info | jq -r '.CacheClusters[0].CacheNodes' | jq '.[] | .Endpoint.Address')
+  MEMCACHENODES=$(/usr/bin/aws elasticache describe-cache-clusters --region $REGION --cache-cluster-id $MEMCACHE_CLUSTER --show-cache-node-info | jq -r '.CacheClusters[0].CacheNodes' | jq '.[] | .Endpoint.Address')
   x=1
   for i in $MEMCACHENODES
   do
@@ -76,7 +58,18 @@ then
 
   echo "============================================================"
   echo " >>>>> Moving context.xml --> /opt/tomcat/conf"
+  cp context.xml /opt/tomcat/conf/context.xml
   echo "============================================================"
+
+  if [ $MOUNT_EFS = "Yes" ]
+  then
+    echo "============================================================"
+    echo " >>>>> Mounting efs file system"
+    sudo yum -y install amazon-efs-utils
+    sudo mount -t efs $EFS_ENDPOINT:/ /opt/nfs
+    echo "============================================================"
+  fi
+  
 fi
 
 if [ $CONF_TYPE = 'rts' ]
@@ -98,5 +91,10 @@ then
   sed -i 's/{{RABBITMQ_PORT}}/'$RABBITMQ_PORT'/g' config.js
   sed -i 's/{{RABBITMQ_USER}}/'$RABBITMQ_USER'/g' config.js
   sed -i 's/{{RABBITMQ_PASSWORD}}/'$RABBITMQ_PASSWORD'/g' config.js
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Moving config.js --> /opt/node/config.js"
+  cp config.js /opt/node/rts/config/index.js
   echo "============================================================"
 fi

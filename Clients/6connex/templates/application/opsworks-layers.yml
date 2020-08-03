@@ -151,6 +151,10 @@ Resources:
               Action:
               - opsworks:*
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-rts-role
@@ -252,6 +256,10 @@ Resources:
               Action:
               - opsworks:*
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcat-role
@@ -340,6 +348,10 @@ Resources:
               Action:
               - opsworks:*
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcatvideo-role
@@ -416,6 +428,10 @@ Resources:
               Action: 
               - elasticache:*
               Resource: "*"
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              Resource: '*'
             - Effect: Allow
               Action:
               - opsworks:*
@@ -512,3 +528,7 @@ Outputs:
   MetricsInstanceProfile:
     Description: Metrics node instance profile
     Value: !GetAtt MetricsInstanceProfile.Arn
+
+  MetricsProfile:
+    Description: metrics profile for the instance
+    Value: !Ref MetricsInstanceProfile

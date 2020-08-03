@@ -680,7 +680,6 @@ Resources:
     DependsOn:
       - SecurityGroups
       - Network
-      - SecretsStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
       Parameters:
@@ -842,8 +841,8 @@ Resources:
         ImageId: !Ref MetricsImageId
         StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
         LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
-        InstanceProfile: !GetAtt LayersStack.Outputs.MetricsInstanceProfile
-        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.RabbitMqSecurityGroup, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
+        InstanceProfile: !GetAtt LayersStack.Outputs.MetricsProfile
+        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.RabbitSg, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
         InstanceType: !Ref MetricsNodeType
         KeyName: !Ref DefaultSshKeyName
         SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
@@ -854,6 +853,7 @@ Resources:
           !Sub 
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
         RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
         RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         RabbitMqUser: !Ref RabbitMqUsername
@@ -873,7 +873,6 @@ Resources:
     - RdsStack
     - MemCacheClusterStack
     - RedisReplicationCluster
-    - MetricsNodeStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -907,10 +906,11 @@ Resources:
           !Sub 
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
         RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
         RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        ConfigurationType: other
+        ConfigurationType: rts
         RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
 
@@ -926,7 +926,6 @@ Resources:
     - RdsStack
     - MemCacheClusterStack
     - RedisReplicationCluster
-    - MetricsNodeStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -956,10 +955,12 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
         DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        MountEfs: 'Yes'
         EfsEndpoint: 
           !Sub 
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
         RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
         RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
@@ -979,7 +980,6 @@ Resources:
     - RdsStack
     - MemCacheClusterStack
     - RedisReplicationCluster
-    - MetricsNodeStack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
@@ -1003,10 +1003,12 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
         DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        MountEfs: 'Yes'
         EfsEndpoint: 
           !Sub 
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
         RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
         RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster

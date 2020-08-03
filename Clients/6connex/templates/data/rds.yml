@@ -118,7 +118,7 @@ Resources:
       - ParameterGroup
       - DbCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-db6C
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6cdb
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
@@ -137,7 +137,7 @@ Resources:
       DBSubnetGroupName: !Ref SubnetGroup
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-db6c
+        Value: !Sub ${Identifier}-${Environment}-6cdb
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -169,7 +169,7 @@ Resources:
       - ParameterGroup
       - DwCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6C
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6cdw
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
@@ -188,7 +188,7 @@ Resources:
       DBSubnetGroupName: !Ref SubnetGroup
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-dw6c
+        Value: !Sub ${Identifier}-${Environment}-6cdw
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
