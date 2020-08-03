@@ -860,6 +860,7 @@ Resources:
         RabbitMqPassword: !Ref RabbitMqPassword
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
         MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         ConfigurationType: other
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -913,6 +914,7 @@ Resources:
         ConfigurationType: rts
         RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
 
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -967,6 +969,7 @@ Resources:
         ConfigurationType: other
         RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
 
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -1015,6 +1018,7 @@ Resources:
         ConfigurationType: other
         RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !Ref TomcatVideoScaleUpAdjustment

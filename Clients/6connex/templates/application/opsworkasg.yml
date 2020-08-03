@@ -64,6 +64,11 @@ Parameters:
     Default: ''
     Description: memcache cluster id
 
+  MemcachePort:
+    Type: Number
+    Default: 0
+    Description: memcache port number
+
   ConfigurationType:
     Type: String
     Default: 'rts'
@@ -370,6 +375,7 @@ Resources:
             # setting region and memcache name to grab the nodes
             echo export REGION=${AWS::Region} >> /etc/environment
             echo export MEMCACHE_CLUSTER=${MemcacheClusterId} >> /etc/environment
+            echo export MEMPORT=${MemcachePort} >> /etc/environment
  
             # setting the type configuration for the nodes
             echo export CONF_TYPE=${ConfigurationType} >> /etc/environment
