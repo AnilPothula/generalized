@@ -72,7 +72,7 @@ Resources:
         - Field: host-header
           HostHeaderConfig:
             Values:
-              - 'rts.6connex.com'
+              - 'us2-rts.nclouds-test.com'
       ListenerArn: !Ref AlbListenerArn
       Priority: 2
 
@@ -103,7 +103,7 @@ Resources:
         - Field: host-header
           HostHeaderConfig:
             Values:
-              - 'tomcat.6connex.com'
+              - 'us2-tomcat.nclouds-test.com'
       ListenerArn: !Ref AlbListenerArn
       Priority: 3
 
