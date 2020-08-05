@@ -23,6 +23,11 @@ Parameters:
     Type: String
     Description: Application load balancer listener
 
+  MetricsNodeId:
+    Type: String
+    Default: ''
+    Description: metrics node id
+
   OwnerName:
     Type: String
     Default: nclouds
@@ -37,6 +42,11 @@ Parameters:
     Type: String
     Default: dev
     Description: Environment name to append to resources names and tags
+
+Conditions:
+
+  NoMetricsNode: !Equals [!Ref MetricsNodeId, '']
+  CreateMetrics: !Not [Condition: NoMetricsNode]
 
 Resources:
 
@@ -54,7 +64,7 @@ Resources:
         Value: '7200'
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-rts-tg
+        Value: !Sub ${Identifier}-${Environment}-rts-target
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -80,12 +90,15 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub ${Identifier}-${Environment}-tomcat-tg
-      Port: 80
+      Port: 443
       VpcId: !Ref VpcId
       Protocol: HTTP
+      HealthCheckPath: /
+      HealthCheckPort: 8080
+      HealthCheckProtocol: HTTP
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-tomcat-tg
+        Value: !Sub ${Identifier}-${Environment}-tomcat-target
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -106,6 +119,44 @@ Resources:
               - 'us2-tomcat.nclouds-test.com'
       ListenerArn: !Ref AlbListenerArn
       Priority: 3
+
+  MetricsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: CreateMetrics
+    Properties:
+      Name: !Sub ${Identifier}-${Environment}-metrics-tg
+      Port: 8080
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      HealthCheckPath: /version.xml
+      HealthCheckPort: 8080
+      HealthCheckProtocol: HTTP
+      Targets:
+      - Id: !Ref MetricsNodeId
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-metrics-target
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  MetricsListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: CreateMetrics
+    Properties:
+      Actions:
+      - Type: forward
+        TargetGroupArn: !Ref MetricsTargetGroup
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+              - 'us2-metrics.nclouds-test.com'
+      ListenerArn: !Ref AlbListenerArn
+      Priority: 4
 
 Outputs:
   RtsTg:

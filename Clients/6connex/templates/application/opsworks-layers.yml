@@ -458,7 +458,7 @@ Resources:
       CustomInstanceProfileArn: !GetAtt MetricsInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
-      - !Ref TomcatVideoSecurityGroup
+      - !Ref TomcatSecurityGroup
       - !Ref RabbitSecurityGroup
       CustomRecipes:
         Setup:

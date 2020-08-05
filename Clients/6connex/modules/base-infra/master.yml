@@ -815,21 +815,6 @@ Resources:
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
-  TargetGroupsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-    - AlbStack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
-      Parameters:
-        Identifier: !Ref Identifier
-        VpcId: !GetAtt Network.Outputs.VpcId
-        AlbArn: !GetAtt AlbStack.Outputs.AlbArn
-        AlbListenerArn: !GetAtt AlbStack.Outputs.AlbListener
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
   MetricsNodeStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -842,7 +827,7 @@ Resources:
         StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
         LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
         InstanceProfile: !GetAtt LayersStack.Outputs.MetricsProfile
-        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.RabbitSg, !GetAtt SecurityGroups.Outputs.OpsworksSg]]
+        SecurityGroupsIds: !Join [',', [ !GetAtt SecurityGroups.Outputs.RabbitSg, !GetAtt SecurityGroups.Outputs.OpsworksSg, !GetAtt SecurityGroups.Outputs.TomcatSg]]
         InstanceType: !Ref MetricsNodeType
         KeyName: !Ref DefaultSshKeyName
         SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
@@ -862,6 +847,22 @@ Resources:
         MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         ConfigurationType: other
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  TargetGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - AlbStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        VpcId: !GetAtt Network.Outputs.VpcId
+        AlbArn: !GetAtt AlbStack.Outputs.AlbArn
+        AlbListenerArn: !GetAtt AlbStack.Outputs.AlbListener
+        MetricsNodeId: !GetAtt MetricsNodeStack.Outputs.MetricsNodeInstanceId
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
