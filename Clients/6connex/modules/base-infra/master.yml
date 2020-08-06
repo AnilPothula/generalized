@@ -143,14 +143,6 @@ Parameters:
     Type: Number
     Default: 80
     Description: cpu porcentage to scale up tomcat instances when CPU usage is high
-  TomcatVideoScaleDownAdjustment:
-    Type: Number
-    Description: The amount by which to scale down
-    Default: -1
-  TomcatVideoScaleUpAdjustment:
-    Type: Number
-    Description: The amount by which to scale up
-    Default: 1
   #################################################################################
   Route53HostedZoneId:
     Type: AWS::Route53::HostedZone::Id
@@ -240,6 +232,13 @@ Parameters:
   MetricsNodeType:
     Type: String
     Description: Metrics node type
+  OpsworksSshSecretId:
+    Type: String
+    NoEcho: true
+    Description: Secrets manager id where ssh key for git is stored
+  GitBranch:
+    Type: String
+    Description: git branch where the chef cookbooks are stored
 
 
 
@@ -273,6 +272,8 @@ Metadata:
       - RepositoryUrl
       - DefaultSshKeyName
       - OpsworksConfig
+      - OpsworksSshSecretId
+      - GitBranch
     - Label:
         default: "Application Load Balancer Configuration"
       Parameters:
@@ -306,8 +307,6 @@ Metadata:
       - TomcatVideoMinSize
       - TomcatVideoLowCpuTreshold
       - TomcatVideoHighCpuTreshold
-      - TomcatVideoScaleDownAdjustment
-      - TomcatVideoScaleUpAdjustment
     - Label:
         default: "Memcache Cluster Configuration"
       Parameters:
@@ -418,10 +417,6 @@ Metadata:
         default: CPU porcentage value to scale down instances on tomcat autoscaling
       TomcatVideoHighCpuTreshold:
         default: CPU porcentage value to scale up instances or tomcat autoscaling
-      TomcatVideoScaleDownAdjustment:
-        default: How many instances to scale down (negative)
-      TomcatVideoScaleUpAdjustment:
-        default: How many instances to scale up (positive)
       MemcacheNodes:
         default: Number of Nodes for Memcache Clusters (same number as AZs)
       MemcacheType:
@@ -464,6 +459,10 @@ Metadata:
         default: Metrics node image id
       MetricsNodeType:
         default: Metrics Instance Type
+      OpsworksSshSecretId:
+        default: Chef cookbooks repo SSH Secret Id
+      GitBranch:
+        default: Chef cookbooks branch/revision
 
 Mappings:
 
@@ -507,7 +506,9 @@ Mappings:
       DownCooldown: '300'
       UpCooldown: '300'
       LowPerid: '300'
-      HighPeriod: '300'
+      HighPeriod: '300' 
+      ScaleUpAdjustment: '1'
+      ScaleDownAdjustment: '-1'
 
   MetricsNodeConfiguration:
     MetricsDefaults:
@@ -768,6 +769,8 @@ Resources:
         HostnameTheme: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, HostnameTheme]
         UseCustomCookbooks: !FindInMap [OpsworksConfiguration, !Ref OpsworksConfig, UseCustomCookbooks]
         DefaultSshKeyName: !Ref DefaultSshKeyName
+        OpsworksSshSecretId: !Ref OpsworksSshSecretId
+        GitBranch: !Ref GitBranch
         VpcId: !GetAtt Network.Outputs.VpcId
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -1022,10 +1025,10 @@ Resources:
         MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
-        ScalingUpAdjustment: !Ref TomcatVideoScaleUpAdjustment
+        ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
         MaxSize: !Ref TomcatVideoMaxSize
         MinSize: !Ref TomcatVideoMinSize
-        ScalingDownAdjustment: !Ref TomcatVideoScaleDownAdjustment
+        ScalingDownAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleDownAdjustment]
         ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, DownCooldown]
         ScaleUpCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, UpCooldown]
         LowPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, LowPerid]

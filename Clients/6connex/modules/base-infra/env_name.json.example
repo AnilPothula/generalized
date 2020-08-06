@@ -1,0 +1,238 @@
+[
+    {
+        "ParameterKey": "Identifier",
+        "ParameterValue": "us2"
+    },
+    {
+        "ParameterKey": "S3BucketName",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "OwnerName",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "Environment",
+        "ParameterValue": "dev"
+    },
+    {
+        "ParameterKey": "S3BuildsBucketName",
+        "ParameterValue": ""
+    },
+
+    {
+        "ParameterKey": "MgmCidr",
+        "ParameterValue": "10.10.0.0/16"
+    },
+    {
+        "ParameterKey": "RequesterVpcId",
+        "ParameterValue": "vpc-0c27cafc4adb0072c"
+    },
+    {
+        "ParameterKey": "MgmtRegion",
+        "ParameterValue": "us-west-1"
+    },
+    {
+        "ParameterKey": "VpcCidr",
+        "ParameterValue": "10.40.0.0/16"
+    },
+    {
+        "ParameterKey": "PublicSubnetsCidr",
+        "ParameterValue": "10.40.1.0/24,10.40.2.0/24,10.40.3.0/24,10.40.4.0/24,10.40.5.0/24,10.40.6.0/24"
+    },
+    {
+        "ParameterKey": "DataSubnetsCidr",
+        "ParameterValue": "10.40.7.0/24,10.40.8.0/24,10.40.9.0/24,10.40.10.0/24,10.40.11.0/24,10.40.12.0/24"
+    },
+    {
+        "ParameterKey": "ApplicationSubnetsCidr",
+        "ParameterValue": "10.40.13.0/24,10.40.14.0/24,10.40.15.0/24,10.40.16.0/24,10.40.17.0/24,10.40.18.0/24"
+    },
+
+    {
+        "ParameterKey": "RepositoryUrl",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "DefaultSshKeyName",
+        "ParameterValue": "US2-admin"
+    },
+    {
+      "ParameterKey": "OpsworksSshSecretId",
+      "ParameterValue": ""
+    },
+    {
+      "ParameterKey": "GitBranch",
+      "ParameterValue": "master"
+    },
+
+    {
+        "ParameterKey": "AlbCertificateArn",
+        "ParameterValue": ""
+    },
+
+    {
+      "ParameterKey": "RtsImageId",
+      "ParameterValue": "ami-0eb72b070d7f73528"
+    },
+    {
+      "ParameterKey": "RtsInstanceType",
+      "ParameterValue": "m3.large"
+    },
+    {
+      "ParameterKey": "RtsDesiredCapacity",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "RtsMaxSize",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "RtsMinSize",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "RtsNumberRequestsPerNode",
+      "ParameterValue": "100"
+    },
+
+    {
+      "ParameterKey": "TomcatImageId",
+      "ParameterValue": "ami-0815f2f67e548d471"
+    },
+    {
+      "ParameterKey": "TomcatInstanceType",
+      "ParameterValue": "m3.large"
+    },
+    {
+      "ParameterKey": "TomcatDesiredCapacity",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "TomcatMaxSize",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "TomcatMinSize",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "TomcatNumberRequestsPerNode",
+      "ParameterValue": "100"
+    },
+
+    {
+      "ParameterKey": "TomcatVideoImageId",
+      "ParameterValue": "ami-0279d865f29e43c40"
+    },
+    {
+      "ParameterKey": "TomcatVideoInstanceType",
+      "ParameterValue": "m3.large"
+    },
+    {
+      "ParameterKey": "TomcatVideoDesiredCapacity",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "TomcatVideoMaxSize",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "TomcatVideoMinSize",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "TomcatVideoLowCpuTreshold",
+      "ParameterValue": "50"
+    },
+    {
+      "ParameterKey": "TomcatVideoHighCpuTreshold",
+      "ParameterValue": "80"
+    },
+
+    {
+      "ParameterKey": "Route53HostedZoneId",
+      "ParameterValue": ""
+    },
+
+    {
+      "ParameterKey": "MemcacheType",
+      "ParameterValue": "cache.t2.small"
+    },
+    {
+      "ParameterKey": "MemcacheNodes",
+      "ParameterValue": "1"
+    },
+    {
+      "ParameterKey": "MemcacheMultiAz",
+      "ParameterValue": "single-az"
+    },
+
+    {
+      "ParameterKey": "RedisNodes",
+      "ParameterValue": "2"
+    },
+    {
+      "ParameterKey": "RedisType",
+      "ParameterValue": "cache.t2.small"
+    },
+    {
+      "ParameterKey": "RedisMultiAz",
+      "ParameterValue": "false"
+    },
+
+    {
+        "ParameterKey": "UserDb",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "PasswordDb",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "ClassDb",
+        "ParameterValue": "db.t2.medium"
+    },
+    {
+        "ParameterKey": "AllocatedStorageDb",
+        "ParameterValue": "100"
+    },
+    {
+        "ParameterKey": "UserDw",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "PasswordDw",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "ClassDw",
+        "ParameterValue": "db.t2.medium"
+    },
+    {
+        "ParameterKey": "AllocatedStorageDw",
+        "ParameterValue": "100"
+    },
+
+    {
+        "ParameterKey": "RdsMultiAz",
+        "ParameterValue": "false"
+    },
+
+    {
+        "ParameterKey": "RabbitMqPassword",
+        "ParameterValue": "testpassword"
+    },
+    {
+        "ParameterKey": "RabbitMqUsername",
+        "ParameterValue": "testuser"
+    },
+    {
+        "ParameterKey": "MetricsImageId",
+        "ParameterValue": "ami-0d43fb2300ebe6ca9"
+    },
+    {
+        "ParameterKey": "MetricsNodeType",
+        "ParameterValue": "m3.large"
+    }
+]
