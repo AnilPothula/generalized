@@ -1044,92 +1044,138 @@ Outputs:
   NetworkPublicIds:
     Description: public subnets ids created
     Value: !GetAtt Network.Outputs.PublicSubnetIds
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnetsIds
 
   NetworkApplicationIds:
     Description: application subnets ids created
     Value: !GetAtt Network.Outputs.ApplicationSubnetIds
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationSubnetsIds
 
   NetworkDataIds:
     Description: data subnets ids created
     Value: !GetAtt Network.Outputs.DataSubnetIds
+    Export:
+      Name: !Sub ${AWS::StackName}-DataSubnetsIds
 
   NetworkVpcId:
     Description: vpc id created
     Value: !GetAtt Network.Outputs.VpcId
+    Export:
+      Name: !Sub ${AWS::StackName}-VpcId
 
   OpsworksStackId:
     Description: opsworks stack id
     Value: !GetAtt OpsworksStack.Outputs.OpsworksStackId
+    Export:
+      Name: !Sub ${AWS::StackName}-OpsworksStackId
 
   SecurityGroupOspworksId:
     Description: opsworks security group id
     Value: !GetAtt SecurityGroups.Outputs.OpsworksSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupOspworksId
 
   SecurityGroupRtsId:
     Description: RTS security group id
     Value: !GetAtt SecurityGroups.Outputs.RtsSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupRtsId
 
   SecurityGroupTomcatId:
     Description: Tomcat security group id
     Value: !GetAtt SecurityGroups.Outputs.TomcatSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupTomcatId
 
   SecurityGroupRdsId:
     Description: RDS security group id
     Value: !GetAtt SecurityGroups.Outputs.RdsSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupRdsId
 
   SecurityGroupRedisId:
     Description: Redis security group id
     Value: !GetAtt SecurityGroups.Outputs.RedisSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupRedisId
 
   SecurityGroupMemcacheId:
     Description: Memcache security group id
     Value: !GetAtt SecurityGroups.Outputs.MemcaheSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupMemcacheId
 
   SecurityGroupEfsId:
     Description: Efs security group id
     Value: !GetAtt SecurityGroups.Outputs.EfsSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupEfsId
 
   SecurityGroupTomcatVideoId:
     Description: Tomcat Video security group id
     Value: !GetAtt SecurityGroups.Outputs.TomcatVideoSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupTomcatVideoId
 
   SecurityGroupAlbId:
     Description: Application Load Balancer security group id
     Value: !GetAtt SecurityGroups.Outputs.AlbSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupAlbId
 
   ApplicationLoadBalancerArn:
     Description: alb arn exposed
     Value: !GetAtt AlbStack.Outputs.AlbArn
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerArn
 
   ApplicationLoadBalancerListener:
     Description: alb listener arn
     Value: !GetAtt AlbStack.Outputs.AlbListener
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerListener
 
   SharedFilesArn:
     Description: S3 Shared Files ARN
     Value: !GetAtt S3Shared.Outputs.BucketS3
+    Export:
+      Name: !Sub ${AWS::StackName}-SharedFilesArn
 
   BriefCaseArn:
     Description: S3 Brief Case ARN
     Value: !GetAtt S3BriefCase.Outputs.BucketS3
+    Export:
+      Name: !Sub ${AWS::StackName}-BriefCaseArn
 
   BatchReportArn:
     Description: S3 Batch Report ARN
     Value: !GetAtt S3BatchReport.Outputs.BucketS3
+    Export:
+      Name: !Sub ${AWS::StackName}-BatchReportArn
 
   MemCacheEndpoint:
     Description: memcache endpoint address
     Value: !GetAtt MemCacheClusterStack.Outputs.ClusterEndPoint
+    Export:
+      Name: !Sub ${AWS::StackName}-MemCacheEndpoint
 
   RedisEndpoint:
     Description: redis endpoint
     Value: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+    Export:
+      Name: !Sub ${AWS::StackName}-RedisEndpoint
 
   DbDatabaseEndpoint:
     Description: DB database endpoint address
     Value: !GetAtt RdsStack.Outputs.DbEndpoint
+    Export:
+      Name: !Sub ${AWS::StackName}-DbDatabaseEndpoint
 
   DwDatabaseEndpoint:
     Description: DW database endpoint
     Condition: IsProduction
     Value: !GetAtt RdsStack.Outputs.DwEndpoint
+    Export:
+      Name: !Sub ${AWS::StackName}-DwDatabaseEndpoint

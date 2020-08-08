@@ -1,0 +1,716 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Template - POD, Adds 4 new layers including backend.
+
+Parameters:
+  ##################### ENVIRONMENT PARAMETERS #####################################
+  Identifier:
+    Type: String
+    Description: Identifier to tag resources created by the stack (Client)
+  S3BucketName:
+    Type: String
+    Description: bucket where CloudFormation templates are stored
+  OwnerName:
+    Type: String
+    Default: 6connex
+    Description: An arbitrary tag name for the owner of these resources
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+  S3BuildsBucketName:
+    Type: String
+    Description: builds bucket name
+  #################################################################################
+  OpsworksSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Opsworks SecurityGroup
+  RtsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Rts Security Group
+  TomcatSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: TOmcat Security Group
+  TomcatVideoSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Tomcat Video Security group
+  RedisSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Redis Security group
+  RdsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: RDS Security group
+  MemcacheSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Memcache Security group
+  EfsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Efs Security group
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Alb Security group
+  RabbitMqSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Rabbit mq  Security group
+  #################################################################################
+  OpsworksStackId:
+    Type: String
+    Description: Opsworks stack id
+  SshKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: key pair to use for the Instances
+  #################################################################################
+  S3SharedBucket:
+    Type: String
+    Description: Bucket for the shared files ARN
+  S3BriefCaseBucket:
+    Type: String
+    Description: Bucket for the brief case files ARN
+  S3BatchReports:
+    Type: String
+    Description: Bucket for the batch ARN
+  #################################################################################
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC id for where the resources will be created
+  ApplicationSubnetsIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets ids to use for the application deployment, 1 subnet for each Availabilty Zone (Important)
+  DataSubnetsIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets ids to use for the application deployment, 1 subnet for each Availabilty Zone (Important)
+  #################################################################################
+  AlbArn:
+    Type: String
+    Description: application load balancer ARN
+  AlbListenerArn:
+    Type: String
+    Description: application load balancer listener ARN
+  ##################### OPSWORKS PARAMETERS ########################################
+  AlbCertificateArn:
+    Type: String
+    Description: application load balancer certificate
+  #################################################################################
+  RtsImageId:
+    Type: AWS::EC2::Image::Id
+    Description: RTS AMI to use for the autoscaling launch template
+  RtsInstanceType:
+    Type: String
+    Description: RTS Instance Type to be used for autoscaling, enter a valid Instance Type
+  RtsDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the RTS autoscaling group
+  RtsMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the rts autoscaling group
+  RtsMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the rts autoscaling group
+  RtsNumberRequestsPerNode:
+    Type: Number
+    Default: 0
+    Description: Target value for the number of requests completed per target in an Application Load Balancer target group
+  RtsCpuAverageTargetValue:
+    Type: Number
+    Default: 0
+    Description: Target value for the Average CPU utilization of the Auto Scaling group (Optional)
+  #################################################################################
+  TomcatImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Tomcat AMI to use for the autoscaling launch template
+  TomcatInstanceType:
+    Type: String
+    Description: Tomcat Instance Type to be used for autoscaling, enter a valid Instance Type
+  TomcatDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the tomcat autoscaling group
+  TomcatMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the tomcat autoscaling group
+  TomcatMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the tomcat autoscaling group
+  TomcatNumberRequestsPerNode:
+    Type: Number
+    Default: 0
+    Description: Target value for the number of requests completed per target in an Application Load Balancer target group
+  TomcatCpuAverageTargetValue:
+    Type: Number
+    Default: 0
+    Description: Target value for the Average CPU utilization of the Auto Scaling group (Optional)
+  #################################################################################
+  TomcatVideoImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Tomcat AMI to use for the autoscaling launch template
+  TomcatVideoInstanceType:
+    Type: String
+    Description: Tomcat Instance Type to be used for autoscaling, enter a valid Instance Type
+  TomcatVideoDesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired capacity of instances to have for the tomcat autoscaling group
+  TomcatVideoMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum number of instances to have on the tomcat autoscaling group
+  TomcatVideoMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances to have on the tomcat autoscaling group
+  TomcatVideoLowCpuTreshold:
+    Type: Number
+    Default: 50
+    Description: cpu porcentage to scale down tomcat instances when CPU usage is low
+  TomcatVideoHighCpuTreshold:
+    Type: Number
+    Default: 80
+    Description: cpu porcentage to scale up tomcat instances when CPU usage is high
+  #################################################################################
+  Route53HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: hosted zone Id
+  #################################################################################
+  MemcacheNodes:
+    Type: Number
+    Description: number of nodes to use for the memcache cluster (same numbre as AZs)
+  MemcacheType:
+    Type: String
+    Description: nodes types for memcache nodes
+  MemcacheMultiAz:
+    Type: String
+    Default: single-az
+    Description: multi az cluster
+    AllowedValues:
+    - cross-az
+    - single-az
+  #################################################################################
+  RedisNodes:
+    Type: Number
+    Default: 2
+    Description: number of nodes for the redis cluster (Minimum 2 Nodes)
+  RedisType:
+    Type: String
+    Description: redis nodes types
+  RedisMultiAz:
+    Type: String
+    Default: false
+    Description: configures a multi az redis cluster
+    AllowedValues:
+    - true
+    - false
+  #################################################################################
+  UserDb:
+    Type: String
+    Description: Username for db6c database instance
+  PasswordDb:
+    Type: String
+    NoEcho: true
+    Description: Password for db6c database instance
+  ClassDb:
+    Type: String
+    Description: Class for db6c database instance
+  AllocatedStorageDb:
+    Type: String
+    Description: allocated Storage for db6c database instance
+  #################################################################################
+  UserDw:
+    Type: String
+    Description: Username for dw6c database instance
+  PasswordDw:
+    Type: String
+    NoEcho: true
+    Description: Password for dw6c database instance
+  ClassDw:
+    Type: String
+    Description: Class for dw6c database instance
+  AllocatedStorageDw:
+    Type: String
+    Description: allocated Storage for dw6c database instance
+  #################################################################################
+  RdsMultiAz:
+    Type: String
+    Default: false
+    Description: creates a multi az dbs
+    AllowedValues:
+    - true
+    - false
+  KmsKeyId:
+    Type: String
+    Default: ''
+    Description: Kms Key for Encryption
+  RabbitMqPassword:
+    Type: String
+    NoEcho: true
+    Description: rabbit mq password
+  RabbitMqUsername:
+    Type: String
+    Description: rabbit mq username
+  MetricsImageId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI to use for metrics node
+  MetricsNodeType:
+    Type: String
+    Description: Metrics node type
+  
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "Environment Configurations"
+      Parameters:
+      - Identifier
+      - S3BucketName
+      - OwnerName
+      - Environment
+      - S3BuildsBucketName
+    - Label:
+        default: "Networking Configurations"
+      Parameters:
+      - VpcId
+      - ApplicationSubnetsIds
+      - DataSubnetsIds
+    - Label:
+        default: "Security Groups"
+      Parameters:
+      - OpsworksSecurityGroupId
+      - RtsSecurityGroupId
+      - TomcatSecurityGroupId
+      - TomcatVideoSecurityGroupId
+      - RedisSecurityGroupId
+      - RdsSecurityGroupId
+      - MemcacheSecurityGroupId
+      - EfsSecurityGroupId
+      - AlbSecurityGroupId
+      - RabbitMqSecurityGroupId
+    - Label:
+        default: "Opsworks Configuration"
+      Parameters:
+      - OpsworksStackId
+      - SshKeyName
+    - Label:
+        default: "S3 Buckets for Application"
+      Parameters:
+      - S3SharedBucket
+      - S3BriefCaseBucket
+      - S3BatchReports
+    - Label:
+        default: "Application Load Balancer Configuration"
+      Parameters:
+      - AlbArn
+      - AlbListenerArn
+      - AlbCertificateArn
+    - Label:
+        default: "RTS Configuration"
+      Parameters:
+      - RtsImageId
+      - RtsInstanceType
+      - RtsDesiredCapacity
+      - RtsMaxSize
+      - RtsMinSize
+      - RtsNumberRequestsPerNode
+      - RtsCpuAverageTargetValue
+    - Label:
+        default: "Tomcat Configuration"
+      Parameters:
+      - TomcatImageId
+      - TomcatInstanceType
+      - TomcatDesiredCapacity
+      - TomcatMaxSize
+      - TomcatMinSize
+      - TomcatNumberRequestsPerNode
+      - TomcatCpuAverageTargetValue
+    - Label:
+        default: "Tomcat Video Configuration"
+      Parameters:
+      - TomcatVideImageId
+      - TomcatVideoInstanceType
+      - TomcatVideoDesiredCapacity
+      - TomcatVideoMaxSize
+      - TomcatVideoMinSize
+      - TomcatVideoLowCpuTreshold
+      - TomcatVideoHighCpuTreshold
+    - Label:
+        default: "Route53 Hosted Zone"
+      Parameters:
+      - Route53HostedZoneId
+    - Label:
+        default: "Memcache Configuration"
+      Parameters:
+      - MemcacheNodes
+      - MemcacheType
+      - MemcacheMultiAz
+    - Label:
+        default: "Redis configuration"
+      Parameters:
+      - RedisNodes
+      - RedisType
+      - RedisMultiAz
+    - Label:
+        default: "RDS DB configuration"
+      Parameters:
+      - UserDb
+      - PasswordDb
+      - ClassDb
+      - AllocatedStorageDb
+    - Label:
+        default: "RDS DW configuration"
+      Parameters:
+      - UserDw
+      - PasswordDw
+      - ClassDw
+      - AllocatedStorageDw
+    - Label:
+        default: "General RDS Configuration"
+      Parameters:
+      - RdsMultiAz
+    - Label:
+        default: "Rabbit MQ Configuration"
+      Parameters:
+      - RabbitMqPassword
+      - RabbitMqUsername
+      - MetricsImageId
+      - MetricsNodeType
+    - Label:
+        default: "Others"
+      Parameters:
+      - KmsKeyId
+    ParameterLabels:
+      Identifier:
+        default: Identifier/Client name
+      S3BucketName:
+        default: S3 Bucket 
+      OwnerName:
+        default: Resources Owner
+      Environment:
+        default: Environment
+      VpcId:
+        default: Select a VPC Id
+      ApplicationSubnetsIds:
+        default: Choose Application Subnets
+      DataSubnetsIds:
+        default: Choose Data Subnets
+      OpsworksSecurityGroupId:
+        default: Choose Opsworks Security Group
+      RtsSecurityGroupId:
+        default: Choose RTS Security Group
+      TomcatSecurityGroupId:
+        default: Choose Tomcat Security Group
+      TomcatVideoSecurityGroupId:
+        default: Choose Tomcat Video Security Group
+      RedisSecurityGroupId:
+        default: Choose Redis Security Group
+      RdsSecurityGroupId:
+        default: Choose RDS Security Group
+      MemcacheSecurityGroupId:
+        default: Choose Memcache Security Group
+      EfsSecurityGroupId:
+        default: Choose EFS Security Group
+      AlbSecurityGroupId:
+        default: Choose ALB Security Group
+      RabbitMqSecurityGroupId:
+        default: Choose Redis Security Group
+      OpsworksStackId:
+        default: Opsworks Stack ID
+      SshKeyName:
+        default: Ssh Key For Opsworks
+      S3SharedBucket:
+        default: Shared Bucket ARN
+      S3BriefCaseBucket:
+        default: BriefCase Bucket ARN
+      S3BatchReports:
+        default: Batch Reports Bucket ARN
+      AlbArn:
+        default: Application Load Balancer ARN
+      AlbListenerArn:
+        default: Application Load Balancer ARN
+      RtsImageId:
+        default: RTS AMI
+      RtsInstanceType:
+        default: RTS Type
+      RtsDesiredCapacity:
+        default: RTS Desired capacity
+      RtsMaxSize:
+        default: RTS max number of instance
+      RtsMinSize:
+        default: RTS min number of instances
+      RtsNumberRequestsPerNode:
+        default: RTS Number of requests handle by each node
+      RtsCpuAverageTargetValue:
+        default: RTS CPU usage (Optional)
+      TomcatImageId:
+        default: Tomcat AMI
+      TomcatInstanceType:
+        default: Tomcat Desired capacity
+      TomcatDesiredCapacity:
+        default: Tomcat Instance Type
+      TomcatMaxSize:
+        default: Tomcat max number of instances
+      TomcatMinSize:
+        default: Tomcat min number of instances
+      TomcatNumberRequestsPerNode:
+        default: Tomcat Number of requests handle by each node
+      TomcatCpuAverageTargetValue:
+        default: Tomcat CPU usage capacity
+      TomcatVideoImageId:
+        default: Tomcat Video AMI
+      TomcatVideoInstanceType:
+        default: Tomcat Video Instance Type
+      TomcatVideoMaxSize:
+        default: Tomcat Video max size
+      TomcatVideoMinSize:
+        default: Tomcat Video min size
+      Route53HostedZoneId:
+        default: Route 53 Hosted Zone
+      MemcacheNodes:
+        default: Number of Nodes for Memcache Clusters (same number as AZs)
+      MemcacheType:
+        default: Memcache nodes types
+      MemcacheMultiAz:
+        default: MultiAz cluster configuration (if cross-az, number of nodes must be same number as AZs on Region)
+      RedisNodes:
+        default: Number of Nodes for Redis Cluster (same number as AZs)
+      RedisType:
+        default: Type of redis nodes
+      RedisMultiAz:
+        default: MultiAz cluster configuration (if true, number of nodes must be same number as AZs on Region)
+      UserDb:
+        default: Username for DB RDS instance
+      PasswordDb:
+        default: Password for DB RDS instance
+      ClassDb:
+        default: Class for DB RDS
+      AllocatedStorageDb:
+        default: Allocated Storage for DB RDS Instance
+      UserDw:
+        default: Username for DW RDS instance
+      PasswordDw:
+        default: Password for DW RDS instance
+      ClassDw:
+        default: Class for DW RDS
+      AllocatedStorageDw:
+        default: Allocated Storage for DW RDS Instance
+      RdsMultiAz:
+        default: "RDS MultiAz creation"
+      RabbitMqPassword:
+        default: Rabbit MQ password configuration
+      RabbitMqUsername:
+        default: Rabbit MQ username configuration
+      MetricsImageId:
+        default: Metrics node image id
+      MetricsNodeType:
+        default: Metrics Instance Type
+      KmsKeyId:
+        default: KMS key for encryption (Optional)
+Mappings:
+
+  RegionalIdentifiers:
+    us-east-1:
+      name: us2
+
+  AutoScalingConfig:
+    RtsConfig:
+      DownCooldown: '300'
+      UpCooldown: '300'
+      LowPerid: '300'
+      HighPeriod: '300'
+    TomcatConfig:
+      DownCooldown: '300'
+      UpCooldown: '300'
+      LowPerid: '300'
+      HighPeriod: '300'
+    TomcatVideo:
+      DownCooldown: '300'
+      UpCooldown: '300'
+      LowPerid: '300'
+      HighPeriod: '300' 
+      ScaleUpAdjustment: '1'
+      ScaleDownAdjustment: '-1'
+  
+  MetricsNodeConfiguration:
+    MetricsDefaults:
+      Port: '5672'
+
+  DataStoreConfiguration:
+    EfsConfig:
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      Encrypted: 'true'
+    MemcacheConfig:
+      CacheParameterGroupFamily: memcached1.4
+      ElasticacheEngine: memcached
+      MultiAz: cross-az
+      EngineVersion: '1.4.14'
+      MemcachePort: '11211'
+    RedisConfig:
+      Encryption: 'true'
+      EncryptionInTransit:  'true'
+      CacheParameterGroupFamily: 'redis5.0'
+      ElasticacheEngine: 'redis'
+      EngineVersion: '5.0.6'
+      MultiAzEnabled: 'true'
+      RedisPort: '6379'
+    RdsConfig:
+      Encryption: 'true'
+
+Conditions:
+
+  IsProduction: !Equals [!Ref Environment, 'prod']
+  NoKmsKey: !Equals [!Ref KmsKeyId, '']
+
+Resources:
+
+  EfsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/efs.yml"
+      Parameters:
+        Identifier: 
+          !Sub 
+            - ${Id}-${RegionalName}-efs
+            - Id: !Ref Identifier
+              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        Encrypted: !FindInMap [DataStoreConfiguration, EfsConfig, Encrypted]
+        ## KMS
+        KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        PerformanceMode: !FindInMap [DataStoreConfiguration, EfsConfig, PerformanceMode]
+        ThroughputMode: !FindInMap [DataStoreConfiguration, EfsConfig, ThroughputMode]
+        ProvisionedThroughputInMibps: !Ref 'AWS::NoValue'
+        SubnetIds: !Join [',', !Ref DataSubnetsIds ]
+        EfsSecurityGroup: !Ref EfsSecurityGroupId
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+  
+  MemCacheClusterStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/elasticache.yml"
+      Parameters:
+        Identifier: 
+          !Sub 
+            - ${Id}-${RegionalName}-memcache
+            - Id: !Ref Identifier
+              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        VpcId: !Ref VpcId
+        SubnetIds: !Join [',', !Ref DataSubnetsIds ]
+        ElastichCacheSecurityGroup: !Ref MemcacheSecurityGroupId
+        ElasticachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        CacheNodeType: !Ref MemcacheType
+        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, MemcacheConfig, CacheParameterGroupFamily]
+        ElasticacheEngine: !FindInMap [DataStoreConfiguration, MemcacheConfig, ElasticacheEngine]
+        EngineVersion: !FindInMap [DataStoreConfiguration, MemcacheConfig, EngineVersion]
+        NumCacheNodes: !Ref MemcacheNodes
+        MultiAz: !Ref MemcacheMultiAz
+        PreferredAvailabilityZones:
+          !If
+          - IsProduction
+          - !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+          - !Select
+            - 0
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  RedisReplicationCluster:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/redis.yml"
+      Parameters:
+        Identifier: 
+          !Sub 
+            - ${Id}-${RegionalName}-redis
+            - Id: !Ref Identifier
+              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        VpcId: !GetAtt Network.Outputs.VpcId
+        SubnetIds: !Join [',', !Ref DataSubnetsIds ]
+        ElastichCacheSecurityGroup: !Ref RedisSecurityGroupId
+        ElasticachePort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        Encryption: !FindInMap [DataStoreConfiguration, RedisConfig, Encryption]
+        EncryptionInTransit: !FindInMap [DataStoreConfiguration, RedisConfig, EncryptionInTransit]
+        #KMS
+        KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        CacheNodeType: !Ref RedisType
+        CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, RedisConfig, CacheParameterGroupFamily]
+        ElasticacheEngine: !FindInMap [DataStoreConfiguration, RedisConfig, ElasticacheEngine]
+        EngineVersion: !FindInMap [DataStoreConfiguration, RedisConfig, EngineVersion]
+        NumCacheClusters: !Ref RedisNodes
+        MultiAzEnabled: !Ref RedisMultiAz
+        PreferredAvailabilityZones:
+          !If
+          - IsProduction
+          - !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+          - !Join
+            - ','
+            - - !Select
+                - 0
+                - Fn::GetAZs: !Ref 'AWS::Region'
+              - !Select
+                - 1
+                - Fn::GetAZs: !Ref 'AWS::Region'
+        PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  RdsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
+      Parameters:
+        Identifier: 
+          !Sub 
+           - ${Id}-${RegionalName}-rds
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        VpcId: !Ref VpcId
+        SubnetIds: !Join [',', !Ref DataSubnetIds ]
+        RdsSecurityGroup: !Ref RdsSecurityGroupId
+        UserDb: !Ref UserDb
+        PasswordDb: !Ref PasswordDb
+        ClassDb: !Ref ClassDb
+        EncryptDb: !FindInMap [DataStoreConfiguration, RdsConfig, Encryption]
+        AllocatedStorageDb: !Ref AllocatedStorageDb
+        UserDw: !Ref UserDw
+        PasswordDw: !Ref PasswordDw
+        ClassDw: !Ref ClassDw
+        EncryptDw: !FindInMap [DataStoreConfiguration, RdsConfig, Encryption]
+        AllocatedStorageDw: !Ref AllocatedStorageDw
+        MultiAz: !Ref RdsMultiAz
+        #KMS
+        KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+Outputs:
+
+  MemCacheEndpoint:
+    Description: memcache endpoint address
+    Value: !GetAtt MemCacheClusterStack.Outputs.ClusterEndPoint
+
+  RedisEndpoint:
+    Description: redis endpoint
+    Value: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+
+  DbDatabaseEndpoint:
+    Description: DB database endpoint address
+    Value: !GetAtt RdsStack.Outputs.DbEndpoint
+
+  DwDatabaseEndpoint:
+    Description: DW database endpoint
+    Condition: IsProduction
+    Value: !GetAtt RdsStack.Outputs.DwEndpoint

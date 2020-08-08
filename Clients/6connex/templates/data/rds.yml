@@ -99,7 +99,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties: 
       Description: !Sub Db credentials secret in env ${Environment}
-      Name: !Sub database/${Environment}/DbCredentials
+      Name: !Sub database/${Identifier}/${Environment}/DbCredentials
       SecretString: !Sub '{"username":"${UserDb}","password":"${PasswordDb}"}'
       Tags:
       - Key: Name
@@ -118,7 +118,7 @@ Resources:
       - ParameterGroup
       - DbCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6cdb
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6codb
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
@@ -149,7 +149,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties: 
       Description: !Sub Dw credentials secret in env ${Environment}
-      Name: !Sub database/${Environment}/DwCredentials
+      Name: !Sub database/${Identifier}/${Environment}/DwCredentials
       SecretString: !Sub '{"username":"${UserDw}","password":"${PasswordDw}"}'
       Tags:
       - Key: Name
@@ -169,7 +169,7 @@ Resources:
       - ParameterGroup
       - DwCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6cdw
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6codw
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
