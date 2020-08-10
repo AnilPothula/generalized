@@ -197,6 +197,15 @@ Parameters:
   MetricsNodeType:
     Type: String
     Description: Metrics node type
+  RtsDomain:
+    Type: String
+    Description: rts domain, ex rts.6connex.com
+  MetricDomain:
+    Type: String
+    Description: metrics domain, ex metrics.6connex.com
+  TomcatDomain:
+    Type: String
+    Description: tomcat domain, ex tomcat.6connex.com
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -245,9 +254,12 @@ Metadata:
       - TomcatVideoLowCpuTreshold
       - TomcatVideoHighCpuTreshold
     - Label:
-        default: "Route53 Hosted Zone"
+        default: "Route53 Hosted Zone and Domains"
       Parameters:
       - Route53HostedZoneId
+      - MetricDomain
+      - TomcatDomain
+      - RtsDomain
     - Label:
         default: "Memcache Configuration"
       Parameters:
@@ -378,6 +390,12 @@ Metadata:
         default: Metrics Instance Type
       KmsKeyId:
         default: KMS key for encryption (Optional)
+      RtsDomain:
+        default: RTS Host Domain
+      TomcatDomain:
+        default: Tomcat Host Domain
+      MetricDomain:
+        default: Metrics Host Domain
 Mappings:
 
   RegionalIdentifiers:
