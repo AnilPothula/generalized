@@ -23,75 +23,13 @@ Parameters:
   S3BuildsBucketName:
     Type: String
     Description: builds bucket name
-  #################################################################################
-  OpsworksSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Opsworks SecurityGroup
-  RtsSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Rts Security Group
-  TomcatSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: TOmcat Security Group
-  TomcatVideoSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Tomcat Video Security group
-  RedisSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Redis Security group
-  RdsSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: RDS Security group
-  MemcacheSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Memcache Security group
-  EfsSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Efs Security group
-  AlbSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Alb Security group
-  RabbitMqSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Rabbit mq  Security group
-  #################################################################################
-  OpsworksStackId:
+  BaseStackName:
     Type: String
-    Description: Opsworks stack id
+    Description: Base infrastructure Stack Name (Resources will be imported)
+  #################################################################################
   SshKeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: key pair to use for the Instances
-  #################################################################################
-  S3SharedBucket:
-    Type: String
-    Description: Bucket for the shared files ARN
-  S3BriefCaseBucket:
-    Type: String
-    Description: Bucket for the brief case files ARN
-  S3BatchReports:
-    Type: String
-    Description: Bucket for the batch ARN
-  #################################################################################
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: VPC id for where the resources will be created
-  ApplicationSubnetsIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: Subnets ids to use for the application deployment, 1 subnet for each Availabilty Zone (Important)
-  DataSubnetsIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: Subnets ids to use for the application deployment, 1 subnet for each Availabilty Zone (Important)
-  #################################################################################
-  AlbArn:
-    Type: String
-    Description: application load balancer ARN
-  AlbListenerArn:
-    Type: String
-    Description: application load balancer listener ARN
-  ##################### OPSWORKS PARAMETERS ########################################
-  AlbCertificateArn:
-    Type: String
-    Description: application load balancer certificate
   #################################################################################
   RtsImageId:
     Type: AWS::EC2::Image::Id
@@ -259,7 +197,6 @@ Parameters:
   MetricsNodeType:
     Type: String
     Description: Metrics node type
-  
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -272,42 +209,11 @@ Metadata:
       - OwnerName
       - Environment
       - S3BuildsBucketName
-    - Label:
-        default: "Networking Configurations"
-      Parameters:
-      - VpcId
-      - ApplicationSubnetsIds
-      - DataSubnetsIds
-    - Label:
-        default: "Security Groups"
-      Parameters:
-      - OpsworksSecurityGroupId
-      - RtsSecurityGroupId
-      - TomcatSecurityGroupId
-      - TomcatVideoSecurityGroupId
-      - RedisSecurityGroupId
-      - RdsSecurityGroupId
-      - MemcacheSecurityGroupId
-      - EfsSecurityGroupId
-      - AlbSecurityGroupId
-      - RabbitMqSecurityGroupId
+      - BaseStackName
     - Label:
         default: "Opsworks Configuration"
       Parameters:
-      - OpsworksStackId
       - SshKeyName
-    - Label:
-        default: "S3 Buckets for Application"
-      Parameters:
-      - S3SharedBucket
-      - S3BriefCaseBucket
-      - S3BatchReports
-    - Label:
-        default: "Application Load Balancer Configuration"
-      Parameters:
-      - AlbArn
-      - AlbListenerArn
-      - AlbCertificateArn
     - Label:
         default: "RTS Configuration"
       Parameters:
@@ -331,7 +237,7 @@ Metadata:
     - Label:
         default: "Tomcat Video Configuration"
       Parameters:
-      - TomcatVideImageId
+      - TomcatVideoImageId
       - TomcatVideoInstanceType
       - TomcatVideoDesiredCapacity
       - TomcatVideoMaxSize
@@ -387,51 +293,13 @@ Metadata:
       Identifier:
         default: Identifier/Client name
       S3BucketName:
-        default: S3 Bucket 
+        default: S3 Bucket
       OwnerName:
         default: Resources Owner
       Environment:
         default: Environment
-      VpcId:
-        default: Select a VPC Id
-      ApplicationSubnetsIds:
-        default: Choose Application Subnets
-      DataSubnetsIds:
-        default: Choose Data Subnets
-      OpsworksSecurityGroupId:
-        default: Choose Opsworks Security Group
-      RtsSecurityGroupId:
-        default: Choose RTS Security Group
-      TomcatSecurityGroupId:
-        default: Choose Tomcat Security Group
-      TomcatVideoSecurityGroupId:
-        default: Choose Tomcat Video Security Group
-      RedisSecurityGroupId:
-        default: Choose Redis Security Group
-      RdsSecurityGroupId:
-        default: Choose RDS Security Group
-      MemcacheSecurityGroupId:
-        default: Choose Memcache Security Group
-      EfsSecurityGroupId:
-        default: Choose EFS Security Group
-      AlbSecurityGroupId:
-        default: Choose ALB Security Group
-      RabbitMqSecurityGroupId:
-        default: Choose Redis Security Group
-      OpsworksStackId:
-        default: Opsworks Stack ID
       SshKeyName:
         default: Ssh Key For Opsworks
-      S3SharedBucket:
-        default: Shared Bucket ARN
-      S3BriefCaseBucket:
-        default: BriefCase Bucket ARN
-      S3BatchReports:
-        default: Batch Reports Bucket ARN
-      AlbArn:
-        default: Application Load Balancer ARN
-      AlbListenerArn:
-        default: Application Load Balancer ARN
       RtsImageId:
         default: RTS AMI
       RtsInstanceType:
@@ -531,10 +399,10 @@ Mappings:
       DownCooldown: '300'
       UpCooldown: '300'
       LowPerid: '300'
-      HighPeriod: '300' 
+      HighPeriod: '300'
       ScaleUpAdjustment: '1'
       ScaleDownAdjustment: '-1'
-  
+
   MetricsNodeConfiguration:
     MetricsDefaults:
       Port: '5672'
@@ -573,8 +441,8 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/efs.yml"
       Parameters:
-        Identifier: 
-          !Sub 
+        Identifier:
+          !Sub
             - ${Id}-${RegionalName}-efs
             - Id: !Ref Identifier
               RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
@@ -584,24 +452,34 @@ Resources:
         PerformanceMode: !FindInMap [DataStoreConfiguration, EfsConfig, PerformanceMode]
         ThroughputMode: !FindInMap [DataStoreConfiguration, EfsConfig, ThroughputMode]
         ProvisionedThroughputInMibps: !Ref 'AWS::NoValue'
-        SubnetIds: !Join [',', !Ref DataSubnetsIds ]
-        EfsSecurityGroup: !Ref EfsSecurityGroupId
+        SubnetIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkDataIds
+        EfsSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupEfsId
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-  
+
   MemCacheClusterStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/elasticache.yml"
       Parameters:
-        Identifier: 
-          !Sub 
+        Identifier:
+          !Sub
             - ${Id}-${RegionalName}-memcache
             - Id: !Ref Identifier
               RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        VpcId: !Ref VpcId
-        SubnetIds: !Join [',', !Ref DataSubnetsIds ]
-        ElastichCacheSecurityGroup: !Ref MemcacheSecurityGroupId
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        SubnetIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkDataIds
+        ElastichCacheSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupMemcacheId
         ElasticachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         CacheNodeType: !Ref MemcacheType
         CacheParameterGroupFamily: !FindInMap [DataStoreConfiguration, MemcacheConfig, CacheParameterGroupFamily]
@@ -628,14 +506,20 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/redis.yml"
       Parameters:
-        Identifier: 
-          !Sub 
+        Identifier:
+          !Sub
             - ${Id}-${RegionalName}-redis
             - Id: !Ref Identifier
               RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        VpcId: !GetAtt Network.Outputs.VpcId
-        SubnetIds: !Join [',', !Ref DataSubnetsIds ]
-        ElastichCacheSecurityGroup: !Ref RedisSecurityGroupId
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        SubnetIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkDataIds
+        ElastichCacheSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupRedisId
         ElasticachePort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         Encryption: !FindInMap [DataStoreConfiguration, RedisConfig, Encryption]
         EncryptionInTransit: !FindInMap [DataStoreConfiguration, RedisConfig, EncryptionInTransit]
@@ -671,14 +555,20 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
       Parameters:
-        Identifier: 
-          !Sub 
+        Identifier:
+          !Sub
            - ${Id}-${RegionalName}-rds
            - Id: !Ref Identifier
              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        VpcId: !Ref VpcId
-        SubnetIds: !Join [',', !Ref DataSubnetIds ]
-        RdsSecurityGroup: !Ref RdsSecurityGroupId
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        SubnetIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkDataIds
+        RdsSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupRdsId
         UserDb: !Ref UserDb
         PasswordDb: !Ref PasswordDb
         ClassDb: !Ref ClassDb
@@ -692,6 +582,334 @@ Resources:
         MultiAz: !Ref RdsMultiAz
         #KMS
         KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  LayersStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworks-layers.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        OpsworksStackId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-OpsworksStackId
+        S3BuildBucketArn: !Sub arn:aws:s3:::${S3BuildsBucketName}
+        S3SharedFilesArn:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SharedFilesArn
+        S3BriefCaseArn:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-BriefCaseArn
+        S3BatchReportArn:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-BatchReportArn
+        S3ConfigFiles: !Sub arn:aws:s3:::${S3BucketName}
+        Route53HostedZoneId: !Ref Route53HostedZoneId
+        RtsSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupRdsId
+        OpsworksSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupOspworksId
+        TomcatSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupTomcatId
+        RabbitSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupRabbitMqId
+        RedisSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupRedisId
+        TomcatVideoSecurityGroup:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-SecurityGroupTomcatVideoId
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  MetricsNodeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - LayersStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        ImageId: !Ref MetricsImageId
+        StackId:
+          Fn::ImportValue:
+            !Sub ${StackName}-OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
+        InstanceProfile: !GetAtt LayersStack.Outputs.MetricsProfile
+        SecurityGroupsIds:
+          !Join
+          - ','
+          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatId
+            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupRabbitMqId
+        InstanceType: !Ref MetricsNodeType
+        KeyName: !Ref DefaultSshKeyName
+        SubnetsIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkApplicationIds
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        EfsEndpoint:
+          !Sub
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        RabbitMqUser: !Ref RabbitMqUsername
+        RabbitMqPassword: !Ref RabbitMqPassword
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        ConfigurationType: other
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  TargetGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - LayersStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        AlbArn:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-ApplicationLoadBalancerArn
+        AlbListenerArn:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-ApplicationLoadBalancerListener
+        MetricsNodeId: !GetAtt MetricsNodeStack.Outputs.MetricsNodeInstanceId
+        RtsDomain: !Ref RtsDomain
+        MetricDomain: !Ref MetricDomain
+        TomcatDomain: !Ref TomcatDomain
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AutoScalingRts:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}-rts
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        S3ConfigFiles: !Ref S3BucketName
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
+        ImageId: !Ref RtsImageId
+        StackId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.RtsLayerId
+        SecurityGroupsIds:
+          !Join
+          - ','
+          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupRtsId
+        InstanceType: !Ref RtsInstanceType
+        KeyName: !Ref DefaultSshKeyName
+        AvalabilityZones:
+          !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        SubnetsIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkApplicationIds
+        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.RtsTg
+        DesiredCapacity: !Ref RtsDesiredCapacity
+        MaxSize: !Ref RtsMaxSize
+        MinSize: !Ref RtsMinSize
+        NumberOfRequestsTargetValue: !Ref RtsNumberRequestsPerNode
+        ApplicationLoadBalancerFullName:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-ApplicationLoadBalancerFullName
+        TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
+
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        EfsEndpoint:
+          !Sub
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: rts
+        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environments
+
+  AutoScalingTomcat:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}-tomcat
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        S3ConfigFiles: !Ref S3BucketName
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
+        ImageId: !Ref TomcatImageId
+        StackId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.TomcatLayerId
+        SecurityGroupsIds:
+          !Join
+          - ','
+          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatId
+        InstanceType: !Ref TomcatInstanceType
+        KeyName: !Ref DefaultSshKeyName
+        AvalabilityZones:
+          !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        SubnetsIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkApplicationIds
+        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.TomcatTg
+        DesiredCapacity: !Ref TomcatDesiredCapacity
+        MaxSize: !Ref TomcatMaxSize
+        MinSize: !Ref TomcatMinSize
+        NumberOfRequestsTargetValue: !Ref TomcatNumberRequestsPerNode
+        ApplicationLoadBalancerFullName:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-ApplicationLoadBalancerFullName
+        TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
+
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        MountEfs: 'Yes'
+        EfsEndpoint:
+          !Sub
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: other
+        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  AutoScalingTomcatVideo:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - TargetGroupsStack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}-tomcatvideo
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        S3ConfigFiles: !Ref S3BucketName
+        VpcId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkVpcId
+        InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn
+        ImageId: !Ref TomcatVideoImageId
+        StackId:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-OpsworksStackId
+        LayerId: !GetAtt LayersStack.Outputs.TomcatVideoLayereId
+        SecurityGroupsIds:
+          !Join
+          - ','
+          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatVideoId
+        InstanceType: !Ref TomcatVideoInstanceType
+        KeyName: !Ref DefaultSshKeyName
+        AvalabilityZones:
+          !Join
+            - ','
+            - Fn::GetAZs: !Ref 'AWS::Region'
+        SubnetsIds:
+          Fn::ImportValue:
+            !Sub ${BaseStackName}-NetworkApplicationIds
+        TargetGroupArn: !Ref 'AWS::NoValue'
+
+        S3ConfigFiles: !Ref S3BucketName
+        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+        MountEfs: 'Yes'
+        EfsEndpoint:
+          !Sub
+          - ${EfsId}.efs.${Region}.amazonaws.com
+          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+            Region: !Ref 'AWS::Region'
+        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+        ConfigurationType: other
+        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+
+        DesiredCapacity: !Ref TomcatVideoDesiredCapacity
+        ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
+        MaxSize: !Ref TomcatVideoMaxSize
+        MinSize: !Ref TomcatVideoMinSize
+        ScalingDownAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleDownAdjustment]
+        ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, DownCooldown]
+        ScaleUpCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, UpCooldown]
+        LowPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, LowPerid]
+        LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
+        HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
+        HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment

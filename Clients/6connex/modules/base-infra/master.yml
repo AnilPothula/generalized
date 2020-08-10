@@ -1052,25 +1052,25 @@ Outputs:
     Description: public subnets ids created
     Value: !GetAtt Network.Outputs.PublicSubnetIds
     Export:
-      Name: !Sub ${AWS::StackName}-PublicSubnetsIds
+      Name: !Sub ${AWS::StackName}-NetworkPublicIds
 
   NetworkApplicationIds:
     Description: application subnets ids created
     Value: !GetAtt Network.Outputs.ApplicationSubnetIds
     Export:
-      Name: !Sub ${AWS::StackName}-ApplicationSubnetsIds
+      Name: !Sub ${AWS::StackName}-NetworkApplicationIds
 
   NetworkDataIds:
     Description: data subnets ids created
     Value: !GetAtt Network.Outputs.DataSubnetIds
     Export:
-      Name: !Sub ${AWS::StackName}-DataSubnetsIds
+      Name: !Sub ${AWS::StackName}-NetworkDataIds
 
   NetworkVpcId:
     Description: vpc id created
     Value: !GetAtt Network.Outputs.VpcId
     Export:
-      Name: !Sub ${AWS::StackName}-VpcId
+      Name: !Sub ${AWS::StackName}-NetworkVpcId
 
   OpsworksStackId:
     Description: opsworks stack id
@@ -1126,6 +1126,12 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-SecurityGroupTomcatVideoId
 
+  SecurityGroupRabbitMqId:
+    Description: Rabbit mq security group id
+    Value: !GetAtt SecurityGroups.Outputs.RabbitSg
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupRabbitMqId
+
   SecurityGroupAlbId:
     Description: Application Load Balancer security group id
     Value: !GetAtt SecurityGroups.Outputs.AlbSg
@@ -1143,6 +1149,12 @@ Outputs:
     Value: !GetAtt AlbStack.Outputs.AlbListener
     Export:
       Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerListener
+
+  ApplicationLoadBalancerFullName:
+    Description: alb full name
+    Value: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerFullName
 
   SharedFilesArn:
     Description: S3 Shared Files ARN
