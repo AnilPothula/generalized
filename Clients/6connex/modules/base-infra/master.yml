@@ -35,15 +35,6 @@ Parameters:
   ApplicationSubnetsCidr:
     Type: String
     Description: IPV4 CIDR blocks for the application subnets
-  MgmCidr:
-    Type: String
-    Description: managemente vpc cidr blocks
-  RequesterVpcId:
-    Type: String
-    Description: id of the managemente vpc
-  MgmtRegion:
-    Type: String
-    Description: region where the management vpc is located
   ##################### NETWORK PARAMETERS #########################################
   ##################### OPSWORKS PARAMETERS ########################################
   RepositoryUrl:
@@ -239,8 +230,16 @@ Parameters:
   GitBranch:
     Type: String
     Description: git branch where the chef cookbooks are stored
-
-
+  #################################################################################
+  RtsDomain:
+    Type: String
+    Description: rts domain, ex rts.6connex.com
+  MetricDomain:
+    Type: String
+    Description: metrics domain, ex metrics.6connex.com
+  TomcatDomain:
+    Type: String
+    Description: tomcat domain, ex tomcat.6connex.com
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -261,12 +260,6 @@ Metadata:
       - ApplicationSubnetsCidr
       - DataSubnetsCidr
     - Label:
-        default: "VPC Peering Configurations"
-      Parameters:
-      - MgmCidr
-      - RequesterVpcId
-      - MgmtRegion
-    - Label:
         default: "Opsworks Stack Configuration"
       Parameters:
       - RepositoryUrl
@@ -279,6 +272,9 @@ Metadata:
       Parameters:
       - AlbCertificateArn
       - Route53HostedZoneId
+      - RtsDomain
+      - MetricDomain
+      - TomcatDomain
     - Label:
         default: "RTS Autoscaling Configurations"
       Parameters:
@@ -288,6 +284,7 @@ Metadata:
       - RtsMaxSize
       - RtsMinSize
       - RtsCpuAverageTargetValue
+      - RtsNumberRequestsPerNode
     - Label:
         default: "Tomcat Autoscaling Configurations"
       Parameters:
@@ -297,6 +294,7 @@ Metadata:
       - TomcatMaxSize
       - TomcatMinSize
       - TomcatCpuAverageTargetValue
+      - TomcatNumberRequestsPerNode
     - Label:
         default: "Tomcat Video Autoscaling Configurations"
       Parameters:
@@ -365,12 +363,6 @@ Metadata:
         default: Valid CIDR Block, comma separated values for application subnets
       DataSubnetsCidr:
         default: Valid CIDR Block, comma separated values for data subnets
-      MgmtRegion:
-        default: Region of the Management VPC
-      MgmCidr:
-        default: CIDR of the managemente VPC
-      RequesterVpcId:
-        default: ID of the managemente VPC
       RepositoryUrl:
         default: Git repository of the Chef Recipes
       DefaultSshKeyName:
@@ -463,6 +455,12 @@ Metadata:
         default: Chef cookbooks repo SSH Secret Id
       GitBranch:
         default: Chef cookbooks branch/revision
+      RtsDomain:
+        default: RTS Host Domain
+      TomcatDomain:
+        default: Tomcat Host Domain
+      MetricDomain:
+        default: Metrics Host Domain
 
 Mappings:
 
@@ -470,6 +468,12 @@ Mappings:
     us-east-1:
       template: vpc.yml
       identifier: us2
+
+  VpcPeeringConfiguration: # configuration on US WEST 1
+    management:
+      MgmCidr: '10.10.0.0/16'
+      MgmVpcId: 'vpc-0c27cafc4adb0072c'
+      MgmtRegion: 'us-west-1'
 
   OpsworksConfiguration:
     default:
@@ -506,7 +510,7 @@ Mappings:
       DownCooldown: '300'
       UpCooldown: '300'
       LowPerid: '300'
-      HighPeriod: '300' 
+      HighPeriod: '300'
       ScaleUpAdjustment: '1'
       ScaleDownAdjustment: '-1'
 
@@ -561,9 +565,9 @@ Resources:
         ApplicationSubnetsCidr: !Join [ ',', !Split [',', !Ref ApplicationSubnetsCidr]]
         SetNatGateway: true
         NatGatewayHA: !If [IsProduction, true, false]
-        RequesterVpcId: !Ref RequesterVpcId
-        RequesterVpcCidrBlock: !Ref MgmCidr
-        MgmtRegion: !Ref MgmtRegion
+        RequesterVpcId: !FindInMap [ VpcPeeringConfiguration, management, MgmVpcId ]
+        RequesterVpcCidrBlock: !FindInMap [VpcPeeringConfiguration, management, MgmCidr]
+        MgmtRegion: !FindInMap [VpcPeeringConfiguration, management, MgmtRegion]
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -576,7 +580,7 @@ Resources:
         Identifier: !Sub ${Identifier}-sgs
         VpcId: !GetAtt Network.Outputs.VpcId
         VpcCidr: !Ref VpcCidr
-        MgmCidr: !Ref MgmCidr
+        MgmCidr: !FindInMap [VpcPeeringConfiguration, management, MgmCidr]
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -837,8 +841,8 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
         DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint: 
-          !Sub 
+        EfsEndpoint:
+          !Sub
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
             Region: !Ref 'AWS::Region'
@@ -866,6 +870,9 @@ Resources:
         AlbArn: !GetAtt AlbStack.Outputs.AlbArn
         AlbListenerArn: !GetAtt AlbStack.Outputs.AlbListener
         MetricsNodeId: !GetAtt MetricsNodeStack.Outputs.MetricsNodeInstanceId
+        RtsDomain: !Ref RtsDomain
+        MetricDomain: !Ref MetricDomain
+        TomcatDomain: !Ref TomcatDomain
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -907,8 +914,8 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
         DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint: 
-          !Sub 
+        EfsEndpoint:
+          !Sub
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
             Region: !Ref 'AWS::Region'
@@ -957,13 +964,13 @@ Resources:
         NumberOfRequestsTargetValue: !Ref TomcatNumberRequestsPerNode
         ApplicationLoadBalancerFullName: !GetAtt AlbStack.Outputs.AlbLoadBalancerFullName
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
-        
+
         S3ConfigFiles: !Ref S3BucketName
         DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
         DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
         MountEfs: 'Yes'
-        EfsEndpoint: 
-          !Sub 
+        EfsEndpoint:
+          !Sub
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
             Region: !Ref 'AWS::Region'
@@ -1011,8 +1018,8 @@ Resources:
         DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
         DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
         MountEfs: 'Yes'
-        EfsEndpoint: 
-          !Sub 
+        EfsEndpoint:
+          !Sub
           - ${EfsId}.efs.${Region}.amazonaws.com
           - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
             Region: !Ref 'AWS::Region'
@@ -1023,7 +1030,7 @@ Resources:
         RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
         MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
-        
+
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
         MaxSize: !Ref TomcatVideoMaxSize

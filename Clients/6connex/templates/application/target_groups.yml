@@ -28,6 +28,18 @@ Parameters:
     Default: ''
     Description: metrics node id
 
+  RtsDomain:
+    Type: String
+    Description: rts domain name
+
+  TomcatDomain:
+    Type: String
+    Description: tomcat domain name
+
+  MetricDomain:
+    Type: String
+    Description: metrics domain name
+
   OwnerName:
     Type: String
     Default: nclouds
@@ -82,7 +94,7 @@ Resources:
         - Field: host-header
           HostHeaderConfig:
             Values:
-              - 'us2-rts.nclouds-test.com'
+              - !Ref RtsDomain
       ListenerArn: !Ref AlbListenerArn
       Priority: 2
 
@@ -116,7 +128,7 @@ Resources:
         - Field: host-header
           HostHeaderConfig:
             Values:
-              - 'us2-tomcat.nclouds-test.com'
+              - !Ref TomcatDomain
       ListenerArn: !Ref AlbListenerArn
       Priority: 3
 
@@ -154,7 +166,7 @@ Resources:
         - Field: host-header
           HostHeaderConfig:
             Values:
-              - 'us2-metrics.nclouds-test.com'
+              - !Ref MetricDomain
       ListenerArn: !Ref AlbListenerArn
       Priority: 4
 
