@@ -651,302 +651,314 @@ Resources:
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
-  MetricsNodeStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-    - LayersStack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
-      Parameters:
-        Identifier:
-          !Sub
-           - ${Id}-${RegionalName}
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        ImageId: !Ref MetricsImageId
-        StackId:
-          Fn::ImportValue:
-            !Sub ${StackName}-OpsworksStackId
-        LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
-        InstanceProfile: !GetAtt LayersStack.Outputs.MetricsProfile
-        SecurityGroupsIds:
-          !Join
-          - ','
-          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
-            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatId
-            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupRabbitMqId
-        InstanceType: !Ref MetricsNodeType
-        KeyName: !Ref DefaultSshKeyName
-        SubnetsIds:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkApplicationIds
-        S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        RabbitMqUser: !Ref RabbitMqUsername
-        RabbitMqPassword: !Ref RabbitMqPassword
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
-        ConfigurationType: other
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
+  # CustomResource:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/custom.yml"
+  #     Parameters:
+  #       Identifier: !Sub ${Identifier}-rulecounter
+  #       S3BucketName: !Ref S3BucketName
+  #       ListenerArn: !GetAtt AlbStack.Outputs.AlbListener
+  #       OwnerName: !Ref OwnerName
+  #       ProjectName: !Ref AWS::StackName
+  #       Environment: !Ref Environment
 
-  TargetGroupsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-    - LayersStack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
-      Parameters:
-        Identifier:
-          !Sub
-           - ${Id}-${RegionalName}
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        VpcId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkVpcId
-        AlbArn:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-ApplicationLoadBalancerArn
-        AlbListenerArn:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-ApplicationLoadBalancerListener
-        MetricsNodeId: !GetAtt MetricsNodeStack.Outputs.MetricsNodeInstanceId
-        RtsDomain: !Ref RtsDomain
-        MetricDomain: !Ref MetricDomain
-        TomcatDomain: !Ref TomcatDomain
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
+  # MetricsNodeStack:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn:
+  #   - LayersStack
+  #   Properties:
+  #     TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
+  #     Parameters:
+  #       Identifier:
+  #         !Sub
+  #          - ${Id}-${RegionalName}
+  #          - Id: !Ref Identifier
+  #            RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+  #       ImageId: !Ref MetricsImageId
+  #       StackId:
+  #         Fn::ImportValue:
+  #           !Sub ${StackName}-OpsworksStackId
+  #       LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
+  #       InstanceProfile: !GetAtt LayersStack.Outputs.MetricsProfile
+  #       SecurityGroupsIds:
+  #         !Join
+  #         - ','
+  #         - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+  #           - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatId
+  #           - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupRabbitMqId
+  #       InstanceType: !Ref MetricsNodeType
+  #       KeyName: !Ref DefaultSshKeyName
+  #       SubnetsIds:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkApplicationIds
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+  #       DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+  #       EfsEndpoint:
+  #         !Sub
+  #         - ${EfsId}.efs.${Region}.amazonaws.com
+  #         - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+  #           Region: !Ref 'AWS::Region'
+  #       RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+  #       RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+  #       RabbitMqUser: !Ref RabbitMqUsername
+  #       RabbitMqPassword: !Ref RabbitMqPassword
+  #       RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+  #       MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+  #       MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+  #       ConfigurationType: other
+  #       OwnerName: !Ref OwnerName
+  #       ProjectName: !Ref AWS::StackName
+  #       Environment: !Ref Environment
+  #
+  # TargetGroupsStack:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn:
+  #   - LayersStack
+  #   Properties:
+  #     TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/target_groups.yml"
+  #     Parameters:
+  #       Identifier:
+  #         !Sub
+  #          - ${Id}-${RegionalName}
+  #          - Id: !Ref Identifier
+  #            RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+  #       VpcId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkVpcId
+  #       AlbArn:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-ApplicationLoadBalancerArn
+  #       AlbListenerArn:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-ApplicationLoadBalancerListener
+  #       MetricsNodeId: !GetAtt MetricsNodeStack.Outputs.MetricsNodeInstanceId
+  #       RtsDomain: !Ref RtsDomain
+  #       MetricDomain: !Ref MetricDomain
+  #       TomcatDomain: !Ref TomcatDomain
+  #       OwnerName: !Ref OwnerName
+  #       ProjectName: !Ref AWS::StackName
+  #       Environment: !Ref Environment
+  #
+  # AutoScalingRts:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn:
+  #   - TargetGroupsStack
+  #   Properties:
+  #     TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+  #     Parameters:
+  #       Identifier:
+  #         !Sub
+  #          - ${Id}-${RegionalName}-rts
+  #          - Id: !Ref Identifier
+  #            RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       VpcId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkVpcId
+  #       InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
+  #       ImageId: !Ref RtsImageId
+  #       StackId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-OpsworksStackId
+  #       LayerId: !GetAtt LayersStack.Outputs.RtsLayerId
+  #       SecurityGroupsIds:
+  #         !Join
+  #         - ','
+  #         - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+  #           - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupRtsId
+  #       InstanceType: !Ref RtsInstanceType
+  #       KeyName: !Ref DefaultSshKeyName
+  #       AvalabilityZones:
+  #         !Join
+  #           - ','
+  #           - Fn::GetAZs: !Ref 'AWS::Region'
+  #       SubnetsIds:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkApplicationIds
+  #       TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.RtsTg
+  #       DesiredCapacity: !Ref RtsDesiredCapacity
+  #       MaxSize: !Ref RtsMaxSize
+  #       MinSize: !Ref RtsMinSize
+  #       NumberOfRequestsTargetValue: !Ref RtsNumberRequestsPerNode
+  #       ApplicationLoadBalancerFullName:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-ApplicationLoadBalancerFullName
+  #       TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
+  #
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+  #       DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+  #       EfsEndpoint:
+  #         !Sub
+  #         - ${EfsId}.efs.${Region}.amazonaws.com
+  #         - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+  #           Region: !Ref 'AWS::Region'
+  #       RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+  #       RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+  #       MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+  #       ConfigurationType: rts
+  #       RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+  #       RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+  #       MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+  #
+  #       OwnerName: !Ref OwnerName
+  #       ProjectName: !Ref AWS::StackName
+  #       Environment: !Ref Environments
+  #
+  # AutoScalingTomcat:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn:
+  #   - TargetGroupsStack
+  #   Properties:
+  #     TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+  #     Parameters:
+  #       Identifier:
+  #         !Sub
+  #          - ${Id}-${RegionalName}-tomcat
+  #          - Id: !Ref Identifier
+  #            RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       VpcId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkVpcId
+  #       InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
+  #       ImageId: !Ref TomcatImageId
+  #       StackId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-OpsworksStackId
+  #       LayerId: !GetAtt LayersStack.Outputs.TomcatLayerId
+  #       SecurityGroupsIds:
+  #         !Join
+  #         - ','
+  #         - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+  #           - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatId
+  #       InstanceType: !Ref TomcatInstanceType
+  #       KeyName: !Ref DefaultSshKeyName
+  #       AvalabilityZones:
+  #         !Join
+  #           - ','
+  #           - Fn::GetAZs: !Ref 'AWS::Region'
+  #       SubnetsIds:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkApplicationIds
+  #       TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.TomcatTg
+  #       DesiredCapacity: !Ref TomcatDesiredCapacity
+  #       MaxSize: !Ref TomcatMaxSize
+  #       MinSize: !Ref TomcatMinSize
+  #       NumberOfRequestsTargetValue: !Ref TomcatNumberRequestsPerNode
+  #       ApplicationLoadBalancerFullName:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-ApplicationLoadBalancerFullName
+  #       TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
+  #
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+  #       DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+  #       MountEfs: 'Yes'
+  #       EfsEndpoint:
+  #         !Sub
+  #         - ${EfsId}.efs.${Region}.amazonaws.com
+  #         - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+  #           Region: !Ref 'AWS::Region'
+  #       RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+  #       RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+  #       MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+  #       ConfigurationType: other
+  #       RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+  #       RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+  #       MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+  #
+  #       OwnerName: !Ref OwnerName
+  #       ProjectName: !Ref AWS::StackName
+  #       Environment: !Ref Environment
+  #
+  # AutoScalingTomcatVideo:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn:
+  #   - TargetGroupsStack
+  #   Properties:
+  #     TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
+  #     Parameters:
+  #       Identifier:
+  #         !Sub
+  #          - ${Id}-${RegionalName}-tomcatvideo
+  #          - Id: !Ref Identifier
+  #            RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       VpcId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkVpcId
+  #       InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn
+  #       ImageId: !Ref TomcatVideoImageId
+  #       StackId:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-OpsworksStackId
+  #       LayerId: !GetAtt LayersStack.Outputs.TomcatVideoLayereId
+  #       SecurityGroupsIds:
+  #         !Join
+  #         - ','
+  #         - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
+  #           - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatVideoId
+  #       InstanceType: !Ref TomcatVideoInstanceType
+  #       KeyName: !Ref DefaultSshKeyName
+  #       AvalabilityZones:
+  #         !Join
+  #           - ','
+  #           - Fn::GetAZs: !Ref 'AWS::Region'
+  #       SubnetsIds:
+  #         Fn::ImportValue:
+  #           !Sub ${BaseStackName}-NetworkApplicationIds
+  #       TargetGroupArn: !Ref 'AWS::NoValue'
+  #
+  #       S3ConfigFiles: !Ref S3BucketName
+  #       DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
+  #       DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
+  #       MountEfs: 'Yes'
+  #       EfsEndpoint:
+  #         !Sub
+  #         - ${EfsId}.efs.${Region}.amazonaws.com
+  #         - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
+  #           Region: !Ref 'AWS::Region'
+  #       RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+  #       RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
+  #       MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
+  #       ConfigurationType: other
+  #       RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
+  #       RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
+  #       MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+  #
+  #       DesiredCapacity: !Ref TomcatVideoDesiredCapacity
+  #       ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
+  #       MaxSize: !Ref TomcatVideoMaxSize
+  #       MinSize: !Ref TomcatVideoMinSize
+  #       ScalingDownAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleDownAdjustment]
+  #       ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, DownCooldown]
+  #       ScaleUpCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, UpCooldown]
+  #       LowPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, LowPerid]
+  #       LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
+  #       HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
+  #       HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
+  #       OwnerName: !Ref OwnerName
+  #       ProjectName: !Ref AWS::StackName
+  #       Environment: !Ref Environment
 
-  AutoScalingRts:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-    - TargetGroupsStack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
-      Parameters:
-        Identifier:
-          !Sub
-           - ${Id}-${RegionalName}-rts
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        S3ConfigFiles: !Ref S3BucketName
-        VpcId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkVpcId
-        InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
-        ImageId: !Ref RtsImageId
-        StackId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-OpsworksStackId
-        LayerId: !GetAtt LayersStack.Outputs.RtsLayerId
-        SecurityGroupsIds:
-          !Join
-          - ','
-          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
-            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupRtsId
-        InstanceType: !Ref RtsInstanceType
-        KeyName: !Ref DefaultSshKeyName
-        AvalabilityZones:
-          !Join
-            - ','
-            - Fn::GetAZs: !Ref 'AWS::Region'
-        SubnetsIds:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkApplicationIds
-        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.RtsTg
-        DesiredCapacity: !Ref RtsDesiredCapacity
-        MaxSize: !Ref RtsMaxSize
-        MinSize: !Ref RtsMinSize
-        NumberOfRequestsTargetValue: !Ref RtsNumberRequestsPerNode
-        ApplicationLoadBalancerFullName:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-ApplicationLoadBalancerFullName
-        TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
-
-        S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        ConfigurationType: rts
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
-
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environments
-
-  AutoScalingTomcat:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-    - TargetGroupsStack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
-      Parameters:
-        Identifier:
-          !Sub
-           - ${Id}-${RegionalName}-tomcat
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        S3ConfigFiles: !Ref S3BucketName
-        VpcId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkVpcId
-        InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
-        ImageId: !Ref TomcatImageId
-        StackId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-OpsworksStackId
-        LayerId: !GetAtt LayersStack.Outputs.TomcatLayerId
-        SecurityGroupsIds:
-          !Join
-          - ','
-          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
-            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatId
-        InstanceType: !Ref TomcatInstanceType
-        KeyName: !Ref DefaultSshKeyName
-        AvalabilityZones:
-          !Join
-            - ','
-            - Fn::GetAZs: !Ref 'AWS::Region'
-        SubnetsIds:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkApplicationIds
-        TargetGroupArn: !GetAtt TargetGroupsStack.Outputs.TomcatTg
-        DesiredCapacity: !Ref TomcatDesiredCapacity
-        MaxSize: !Ref TomcatMaxSize
-        MinSize: !Ref TomcatMinSize
-        NumberOfRequestsTargetValue: !Ref TomcatNumberRequestsPerNode
-        ApplicationLoadBalancerFullName:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-ApplicationLoadBalancerFullName
-        TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
-
-        S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        MountEfs: 'Yes'
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        ConfigurationType: other
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
-
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
-  AutoScalingTomcatVideo:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-    - TargetGroupsStack
-    Properties:
-      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
-      Parameters:
-        Identifier:
-          !Sub
-           - ${Id}-${RegionalName}-tomcatvideo
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        S3ConfigFiles: !Ref S3BucketName
-        VpcId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkVpcId
-        InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn
-        ImageId: !Ref TomcatVideoImageId
-        StackId:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-OpsworksStackId
-        LayerId: !GetAtt LayersStack.Outputs.TomcatVideoLayereId
-        SecurityGroupsIds:
-          !Join
-          - ','
-          - - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupOspworksId
-            - Fn::ImportValue: !Sub ${BaseStackName}-SecurityGroupTomcatVideoId
-        InstanceType: !Ref TomcatVideoInstanceType
-        KeyName: !Ref DefaultSshKeyName
-        AvalabilityZones:
-          !Join
-            - ','
-            - Fn::GetAZs: !Ref 'AWS::Region'
-        SubnetsIds:
-          Fn::ImportValue:
-            !Sub ${BaseStackName}-NetworkApplicationIds
-        TargetGroupArn: !Ref 'AWS::NoValue'
-
-        S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        MountEfs: 'Yes'
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        ConfigurationType: other
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
-
-        DesiredCapacity: !Ref TomcatVideoDesiredCapacity
-        ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
-        MaxSize: !Ref TomcatVideoMaxSize
-        MinSize: !Ref TomcatVideoMinSize
-        ScalingDownAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleDownAdjustment]
-        ScaleDownCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, DownCooldown]
-        ScaleUpCooldown: !FindInMap [AutoScalingConfig, TomcatVideo, UpCooldown]
-        LowPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, LowPerid]
-        LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
-        HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
-        HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
-        OwnerName: !Ref OwnerName
-        ProjectName: !Ref AWS::StackName
-        Environment: !Ref Environment
-
-Outputs:
-
-  MemCacheEndpoint:
-    Description: memcache endpoint address
-    Value: !GetAtt MemCacheClusterStack.Outputs.ClusterEndPoint
-
-  RedisEndpoint:
-    Description: redis endpoint
-    Value: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-
-  DbDatabaseEndpoint:
-    Description: DB database endpoint address
-    Value: !GetAtt RdsStack.Outputs.DbEndpoint
-
-  DwDatabaseEndpoint:
-    Description: DW database endpoint
-    Condition: IsProduction
-    Value: !GetAtt RdsStack.Outputs.DwEndpoint
+# Outputs:
+#
+#   MemCacheEndpoint:
+#     Description: memcache endpoint address
+#     Value: !GetAtt MemCacheClusterStack.Outputs.ClusterEndPoint
+#
+#   RedisEndpoint:
+#     Description: redis endpoint
+#     Value: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
+#
+#   DbDatabaseEndpoint:
+#     Description: DB database endpoint address
+#     Value: !GetAtt RdsStack.Outputs.DbEndpoint
+#
+#   DwDatabaseEndpoint:
+#     Description: DW database endpoint
+#     Condition: IsProduction
+#     Value: !GetAtt RdsStack.Outputs.DwEndpoint

@@ -31,3 +31,13 @@ services:
     volumes:
       - ./:/home
     command: bash -c 'aws cloudformation update-stack --stack-name ${BASE_INFRA_STACKNAME}-${ENVIRONMENT} --template-body file://modules/base-infra/master.yml --parameters file://modules/base-infra/${ENVIRONMENT}.json --capabilities  CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_IAM'
+
+  lambda_pack:
+    build: ./
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    volumes:
+      - ./:/home
+    command: bash -c 'cd lambdas/rules_count && zip -u custom.zip * && aws s3 sync . s3://${S3BUCKET}/${ENVIRONMENT}/lambdas/rules_count/ --exclude "*" --include "*.zip" --delete'

@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Template to create custom resource from lambda
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for S3 Bucket to be created
+  S3BucketName:
+    Type: String
+    Description: s3 bucket name to be used where code is stored
+  ListenerArn:
+    Type: String
+    Description: arn from the load's balancer listener
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Resources:
+  ########## Notify Role ##########
+  CustomResourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/ElasticLoadBalancingReadOnly
+      Tags:
+        - Key: Name
+          Value: !Sub ${Identifier}-${Environment}-customrole
+        - Key: OwnerName
+          Value: !Ref OwnerName
+        - Key: ProjectName
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  CustomLambdaResource:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Lambda function that handles custom resource
+      Handler: index.handler
+      Role: !GetAtt [ CustomResourceRole, Arn ]
+      Runtime: python2.7
+      FunctionName: !Sub ${Identifier}-${Environment}-custom-lambda
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Sub ${Environment}/lambdas/rules_count/custom.zip
+      Tags:
+        - Key: Name
+          Value: !Sub ${Identifier}-${Environment}-custom-lambda
+        - Key: OwnerName
+          Value: !Ref OwnerName
+        - Key: ProjectName
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  AlbRuleCounter:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt CustomLambdaResource.Arn
+      ListenerArn: !Ref ListenerArn
+
+Outputs:
+  RtsCount:
+    Description: rts rule Priority available
+    Value: !GetAtt AlbRuleCounter.RtsCountRule
+
+  TomcatCount:
+    Description: tomcat rule priority available
+    Value: !GetAtt AlbRuleCounter.TomcatCountRule
+
+  MetricsCount:
+    Description: metrics rule priority available
+    Value: !GetAtt AlbRuleCounter.MetricsCountRule

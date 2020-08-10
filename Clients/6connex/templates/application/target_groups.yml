@@ -32,13 +32,25 @@ Parameters:
     Type: String
     Description: rts domain name
 
+  RtsPriority:
+    Type: Number
+    Description: rule priority for rts rule
+
   TomcatDomain:
     Type: String
     Description: tomcat domain name
 
+  TomcatPriority:
+    Type: String
+    Description: tomcat priority
+
   MetricDomain:
     Type: String
     Description: metrics domain name
+
+  MetricsPriority:
+    Type: String
+    Description: metrics priority
 
   OwnerName:
     Type: String
@@ -96,7 +108,7 @@ Resources:
             Values:
               - !Ref RtsDomain
       ListenerArn: !Ref AlbListenerArn
-      Priority: 2
+      Priority: !Ref RtsPriority
 
   TomcatTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -120,6 +132,8 @@ Resources:
 
   TomcatListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    DependsOn:
+    - RtsListenerRule
     Properties:
       Actions:
       - Type: forward
@@ -130,7 +144,7 @@ Resources:
             Values:
               - !Ref TomcatDomain
       ListenerArn: !Ref AlbListenerArn
-      Priority: 3
+      Priority: !Ref TomcatPriority
 
   MetricsTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -158,6 +172,8 @@ Resources:
   MetricsListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Condition: CreateMetrics
+    DependsOn:
+    - TomcatListenerRule
     Properties:
       Actions:
       - Type: forward
@@ -168,7 +184,7 @@ Resources:
             Values:
               - !Ref MetricDomain
       ListenerArn: !Ref AlbListenerArn
-      Priority: 4
+      Priority: !Ref MetricsPriority
 
 Outputs:
   RtsTg:

@@ -871,8 +871,11 @@ Resources:
         AlbListenerArn: !GetAtt AlbStack.Outputs.AlbListener
         MetricsNodeId: !GetAtt MetricsNodeStack.Outputs.MetricsNodeInstanceId
         RtsDomain: !Ref RtsDomain
+        RtsPriority: 1
         MetricDomain: !Ref MetricDomain
+        MetricsPriority: 3
         TomcatDomain: !Ref TomcatDomain
+        TomcatPriority: 2
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
