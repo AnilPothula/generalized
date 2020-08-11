@@ -830,6 +830,7 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
       Parameters:
         Identifier: !Ref Identifier
+        IdentifierRds: !Sub ${Identifier}-rds
         ImageId: !Ref MetricsImageId
         StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
         LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
@@ -892,6 +893,8 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
         Identifier: !Sub ${Identifier}-rts
+        IdentifierRds: !Sub ${Identifier}-rds
+        IdentifierMetrics: !Ref Identifier
         S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
@@ -946,6 +949,8 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
         Identifier: !Sub ${Identifier}-tomcat
+        IdentifierRds: !Sub ${Identifier}-rds
+        IdentifierMetrics: !Ref Identifier
         S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
@@ -1001,6 +1006,8 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
         Identifier: !Sub ${Identifier}-tomcatvideo
+        IdentifierRds: !Sub ${Identifier}-rds
+        IdentifierMetrics: !Ref Identifier
         S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn

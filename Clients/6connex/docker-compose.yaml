@@ -41,3 +41,25 @@ services:
     volumes:
       - ./:/home
     command: bash -c 'cd lambdas/rules_count && zip -u custom.zip * && aws s3 sync . s3://${S3BUCKET}/${ENVIRONMENT}/lambdas/rules_count/ --exclude "*" --include "*.zip" --delete'
+
+  pod_create:
+    build: ./
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      PODNAME: ${PODNAME}
+    volumes:
+      - ./:/home
+    command: bash -c 'aws cloudformation create-stack --stack-name ${PODNAME}-${ENVIRONMENT} --template-body file://modules/pod/master.yml --parameters file://modules/pod/${ENVIRONMENT}.json --capabilities  CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_IAM'
+
+  pod_update:
+    build: ./
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      PODNAME: ${PODNAME}
+    volumes:
+      - ./:/home
+    command: bash -c 'aws cloudformation update-stack --stack-name ${PODNAME}-${ENVIRONMENT} --template-body file://modules/pod/master.yml --parameters file://modules/pod/${ENVIRONMENT}.json --capabilities  CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_IAM'
