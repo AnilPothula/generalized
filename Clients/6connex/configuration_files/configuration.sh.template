@@ -77,6 +77,8 @@ then
     cp files/rabbitmq-env.conf.template rabbitmq-env.conf
     sed -i 's/{{NODE_ID}}/'$NODE_ID'/g' rabbitmq-env.conf
     cp rabbitmq-env.conf /etc/rabbitmq/rabbitmq-env.conf
+    sudo pkill -9 -f epmd
+    sudo pkill -9 -f erl
     echo "============================================================"
   fi
 
