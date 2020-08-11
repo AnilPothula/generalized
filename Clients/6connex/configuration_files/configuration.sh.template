@@ -69,7 +69,17 @@ then
     sudo mount -t efs $EFS_ENDPOINT:/ /opt/nfs
     echo "============================================================"
   fi
-  
+
+  if [ $RABBIT_CONF = "Yes" ]
+  then
+    echo "============================================================"
+    echo " >>>>> Configuring rabbitmq node name"
+    cp files/rabbitmq-env.conf.template rabbitmq-env.conf
+    sed -i 's/{{NODE_ID}}/'$NODE_ID'/g' rabbitmq-env.conf
+    cp rabbitmq-env.conf /etc/rabbitmq/rabbitmq-env.conf
+    echo "============================================================"
+  fi
+
 fi
 
 if [ $CONF_TYPE = 'rts' ]

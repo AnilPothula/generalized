@@ -194,6 +194,8 @@ Resources:
             echo export RABBITMQ_PORT=${RabbitMqPort} >> /etc/environment
             echo export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Identifier}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
             echo export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Identifier}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+            echo export RABBIT_CONF=Yes >> /etc/environment
+            echo export NODE_ID=${Identifier}-metrics >> /etc/environment
 
             # setting region and memcache name to grab the nodes
             echo export REGION=${AWS::Region} >> /etc/environment
