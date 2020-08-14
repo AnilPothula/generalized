@@ -190,10 +190,10 @@ Resources:
         Setup:
         - ops::rts
         - ops-icinga2::client
-        Configure:
-        - ops::dns-add
-        Shutdown:
-        - ops::dns-delete
+        # Configure:
+        # - ops::dns-add
+        # Shutdown:
+        # - ops::dns-delete
       Shortname: !Sub ${Identifier}-${Environment}-rt
       Tags:
       - Key: NameLayer
@@ -295,6 +295,7 @@ Resources:
         Setup:
         - ops::tomcat
         - ops-icinga2::client
+        - ops::efs
       Shortname: !Sub ${Identifier}-${Environment}-tomcat
       Tags:
       - Key: NameLayer
