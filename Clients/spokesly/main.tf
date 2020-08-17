@@ -28,12 +28,5 @@ module "batch_environment" {
   subnets       = var.subnets
   vpc_id        = var.vpc_id
   tags          = var.tags
-}
-
-module "job_queue" {
-  source = "./modules/job_queue"
-
-  identifier    = var.identifier
-  compute_environment_arn = module.batch_environment.output.compute_environment_arn
-  tags          = var.tags
+  image         = var.image
 }

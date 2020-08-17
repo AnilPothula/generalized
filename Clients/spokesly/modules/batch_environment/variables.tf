@@ -38,3 +38,8 @@ variable "tags" {
   default     = {}
   type        = map
 }
+
+variable "image" {
+  description = "Docker image to be used"
+  type        = string
+}

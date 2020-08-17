@@ -24,19 +24,19 @@ variable "min_vcpus" {
 
 variable "ec2_key_pair" {
   description = "EC2 Key pair"
-  default     = "shariq-oregonkey"
+  default     = "parveen-oregon"
   type        = string
 }
 
 variable "subnets" {
   description = "subnets"
-  default     = "subnet-09fcc09f970177ac5,subnet-0f8ff3b4a2e20bf95"
+  default     = "subnet-982c19c2,subnet-ee9adea5,subnet-03942228,subnet-d50b51ac"
   type        = string
 }
 
 variable "vpc_id" {
   description = "vpc id"
-  default     = "vpc-0c570d6807bb402d7"
+  default     = "vpc-20de1758"
   type        = string
 }
 
@@ -44,4 +44,10 @@ variable "tags" {
   description = "Tags to be applied to the resource"
   default     = {}
   type        = map
+}
+
+variable "image" {
+  description = "Docker image to be used"
+  default     = "695292474035.dkr.ecr.us-west-2.amazonaws.com/spokesly"
+  type        = string
 }
