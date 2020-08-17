@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Template to create custom resource from lambda
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for S3 Bucket to be created
+  DbEndpoint:
+    Type: String
+    Description: parameter to save db endpoint
+  DwEndpoint:
+    Type: String
+    Description: parameter to save dw endpoint
+  MemcacheEndpoint:
+    Type: String
+    Description: parameter to save MemcacheEndpoint
+  MemcachePort:
+    Type: String
+    Description: memcache port
+  RedisEndpoint:
+    Type: String
+    Description: parameter to save redis endpoint
+  RedisPort:
+    Type: String
+    Description: parameter to save redis port
+  EfsEndpoint:
+    Type: String
+    Description: parameter to save efs endpoint
+  RabbitMqHost:
+    Type: String
+    Description: parameter to save rabbit mq host
+  RabbitMqPort:
+    Type: String
+    Description: parameter to save rabbit mq port 
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Resources:
+
+  DbEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/DB/DbEndpoint
+      Type: String
+      Value: !Ref DbEndpoint
+      Description: !Sub Db endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/DB/DbEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  DwEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
+      Type: String
+      Value: !Ref DwEndpoint
+      Description: !Sub Dw endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+  
+  MemcacheEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+      Type: String
+      Value: !Ref MemcacheEndpoint
+      Description: !Sub Memcache endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  MemcachePortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Memcache/MemcachePort
+      Type: String
+      Value: !Ref MemcachePort
+      Description: !Sub Memcache port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Memcache/MemcachePort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  RedisEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Redis/RedisEndpoint
+      Type: String
+      Value: !Ref RedisEndpoint
+      Description: !Sub Redis endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Redis/RedisEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  RedisPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Redis/RedisPort
+      Type: String
+      Value: !Ref RedisPort
+      Description: !Sub Redis port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Redis/RedisPort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  EfsParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Efs/EfsEndpoint
+      Type: String
+      Value: !Ref EfsEndpoint
+      Description: !Sub Efs endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Efs/EfsEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  RabbitHostParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+      Type: String
+      Value: !Ref RabbitMqHost
+      Description: !Sub rabbit host on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  RabbitPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
+      Type: String
+      Value: !Ref RabbitMqPort
+      Description: !Sub rabbit port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+Outputs:
+
+  DbEndpointName:
+    Description: db endpoint parameter name
+    Value: !Sub /${Environment}/${Identifier}/DB/DbEndpoint
+
+  DwEndpointName:
+    Description: dw endpoint parameter name
+    Value: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
+
+  MemcacheEndpointName:
+    Description: memecache endpoint name
+    Value: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+
+  MemcachePortName:
+    Description: memecache port name
+    Value: !Sub /${Environment}/${Identifier}/Memcache/MemcachePort
+
+  EfsEndpointName:
+    Description: efs endpoint name
+    Value: !Sub /${Environment}/${Identifier}/Efs/EfsEndpoint
+  
+  RabbitHostName:
+    Description: rabbit host name
+    Value: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+
+  RabbitPortName:
+    Description: rabbit port name
+    Value: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort

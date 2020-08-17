@@ -155,6 +155,11 @@ Resources:
               Action:
               - 'ec2:*'
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-rts-role
@@ -260,6 +265,11 @@ Resources:
               Action:
               - 'ec2:*'
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcat-role
@@ -353,6 +363,11 @@ Resources:
               Action:
               - 'ec2:*'
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcatvideo-role
@@ -436,6 +451,11 @@ Resources:
             - Effect: Allow
               Action:
               - opsworks:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
               Resource: '*'
 
 

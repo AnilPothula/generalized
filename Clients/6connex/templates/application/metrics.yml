@@ -11,10 +11,6 @@ Parameters:
     Default: 6connex
     Description: A name identifier for the resources
 
-  IdentifierRds:
-    Type: String
-    Description: rds identifier placed on the template
-
   ImageId:
     Type: String
     Description: Amazon Linux image id
@@ -53,31 +49,6 @@ Parameters:
     Type: String
     Description: S3 Bucket to download configuration files
 
-  DbEndpoint:
-    Type: String
-    Default: ''
-    Description: db endpoint value
-
-  DwEndpoint:
-    Type: String
-    Default: ''
-    Description: dw endpoint value
-
-  EfsEndpoint:
-    Type: String
-    Default: ''
-    Description: efs endpoint value
-
-  RedisEndpoint:
-    Type: String
-    Default: ''
-    Description: redis endpoint
-
-  RedisPort:
-    Type: Number
-    Default: 0
-    Description: redis port
-
   RabbitMqUser:
     Type: String
     Description: rabbit mq user
@@ -91,16 +62,6 @@ Parameters:
     Type: Number
     Default: 0
     Description: rabbit mq port to use
-
-  MemcacheClusterId:
-    Type: String
-    Default: ''
-    Description: memcache cluster id
-
-  MemcachePort:
-    Type: Number
-    Default: 0
-    Description: memcache port number
 
   ConfigurationType:
     Type: String
@@ -132,7 +93,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Description: !Sub rabbit mq credentials in env ${Environment}
-      Name: !Sub metrics/${Identifier}/${Environment}/RabbitmqCredentials
+      Name: !Sub ${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials
       SecretString: !Sub '{"username":"${RabbitMqUser}","password":"${RabbitMqPassword}"}'
       Tags:
       - Key: Name
@@ -176,31 +137,31 @@ Resources:
             sudo yum update -y aws-cli
 
             # getting db credentials
-            echo export USER_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export PASSWORD_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export DB_ENDPOINT=${DbEndpoint} >> /etc/environment
+            echo export USER_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DbCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
+            echo export PASSWORD_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DbCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+            echo export DB_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/DB/DbEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
 
             # getting dw credentials
-            echo export USER_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export PASSWORD_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export DW_ENDPOINT=${DwEndpoint} >> /etc/environment
+            echo export USER_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DwCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
+            echo export PASSWORD_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DwCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+            echo export DW_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/DB/DwEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
 
             # settinig redis endpoint and port
-            echo export REDIS_ENDPOINT=${RedisEndpoint} >> /etc/environment
-            echo export REDIS_PORT=${RedisPort} >> /etc/environment
+            echo export REDIS_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Redis/RedisEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
+            echo export REDIS_PORT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Redis/RedisPort" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
 
             # settinig rabbit mq information
             echo export RABBITMQ_HOST=127.0.0.1 >> /etc/environment
             echo export RABBITMQ_PORT=${RabbitMqPort} >> /etc/environment
-            echo export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Identifier}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Identifier}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+            echo export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
+            echo export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
             echo export RABBIT_CONF=Yes >> /etc/environment
             echo export NODE_ID=${Identifier}-metrics >> /etc/environment
 
             # setting region and memcache name to grab the nodes
             echo export REGION=${AWS::Region} >> /etc/environment
-            echo export MEMCACHE_CLUSTER=${MemcacheClusterId} >> /etc/environment
-            echo export MEMPORT=${MemcachePort} >> /etc/environment
+            echo export MEMCACHE_CLUSTER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Memcache/MemcacheClusterId" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
+            echo export MEMPORT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Memcache/MemcachePort" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
 
             # setting the type configuration for the nodes
             echo export CONF_TYPE=${ConfigurationType} >> /etc/environment
@@ -225,6 +186,31 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  RabbitHostParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+      Type: String
+      Value: !GetAtt MetricsInstance.PrivateIp
+      Description: !Sub rabbit host on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+  
+  RabbitPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
+      Type: String
+      Value: !Ref RabbitMqPort
+      Description: !Sub rabbit port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
 Outputs:
 
   MetricsNodeIp:
@@ -234,3 +220,11 @@ Outputs:
   MetricsNodeInstanceId:
     Description: metrics node instace id
     Value: !Ref MetricsInstance
+
+  RabbitHostName:
+    Description: rabbit host name
+    Value: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+
+  RabbitPortName:
+    Description: rabbit port name
+    Value: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort

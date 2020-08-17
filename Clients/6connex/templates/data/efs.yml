@@ -115,7 +115,26 @@ Resources:
       SecurityGroups: 
       - !Ref EfsSecurityGroup
       SubnetId: !Select [ 5, !Ref SubnetIds ]
+
+  EfsParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Efs/EfsEndpoint
+      Type: String
+      Value: !Sub ${FileSystem}.efs.${AWS::Region}.amazonaws.com
+      Description: !Sub Efs endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Efs/EfsEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
 Outputs:
+
+  EfsEndpointParameterName:
+    Description: efs endpoint name
+    Value: !Sub /${Environment}/${Identifier}/Efs/EfsEndpoint
+
   FileSystemId:
     Description: The ID of the EFS file system
     Value: !Ref FileSystem

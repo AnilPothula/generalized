@@ -86,7 +86,7 @@ Resources:
   SubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
-      CacheSubnetGroupName: !Sub ${Identifier}-${Environment}-elasticache-subnetgroup
+      CacheSubnetGroupName: !Sub ${Identifier}-${Environment}-redis-subnetgroup
       Description: Subnet group for the elasticache cluster
       SubnetIds: !Ref SubnetIds
   ParameterGroup:
@@ -126,8 +126,42 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  RedisEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Redis/RedisEndpoint
+      Type: String
+      Value: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+      Description: !Sub Redis endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Redis/RedisEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  RedisPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Redis/RedisPort
+      Type: String
+      Value: !Ref ElasticachePort
+      Description: !Sub Redis port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Redis/RedisPort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
 Outputs:
 
   RedisEndpoint:
     Description: redis endpoint Address
     Value: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+
+  RedisEndpointName:
+    Description: redis endpoint name
+    Value: !Sub /${Environment}/${Identifier}/Redis/RedisEndpoint
+
+  RedisPortName:
+    Description: redis port name
+    Value: !Sub /${Environment}/${Identifier}/Redis/RedisPort

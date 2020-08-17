@@ -77,7 +77,7 @@ Resources:
   RtsTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${Identifier}-${Environment}-rts-tg
+      Name: !Sub ${Identifier}-${Environment}-rts-targetgroup
       VpcId: !Ref VpcId
       Port: 80
       Protocol: HTTP
@@ -88,7 +88,7 @@ Resources:
         Value: '7200'
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-rts-target
+        Value: !Sub ${Identifier}-${Environment}-rts-targetgroup
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -113,7 +113,7 @@ Resources:
   TomcatTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${Identifier}-${Environment}-tomcat-tg
+      Name: !Sub ${Identifier}-${Environment}-tomcat-targetgroup
       Port: 443
       VpcId: !Ref VpcId
       Protocol: HTTP
@@ -122,7 +122,7 @@ Resources:
       HealthCheckProtocol: HTTP
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-tomcat-target
+        Value: !Sub ${Identifier}-${Environment}-tomcat-targetgroup
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -150,7 +150,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: CreateMetrics
     Properties:
-      Name: !Sub ${Identifier}-${Environment}-metrics-tg
+      Name: !Sub ${Identifier}-${Environment}-metrics-targetgroup
       Port: 8080
       VpcId: !Ref VpcId
       Protocol: HTTP
@@ -161,7 +161,7 @@ Resources:
       - Id: !Ref MetricsNodeId
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-metrics-target
+        Value: !Sub ${Identifier}-${Environment}-metrics-targetgroup
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
