@@ -1,0 +1,112 @@
+if [ $CONF_TYPE = 'other' ]
+then
+  if [ $ENV = "prod" ]
+  then
+    echo "============================================================"
+    echo " >>>>> using prod.xml"
+    cp files/prod.xml.template context.xml
+    echo "============================================================"
+  else
+    echo "============================================================"
+    echo " >>>>> using non-prod.xml"
+    cp files/non-prod.xml.template context.xml
+    echo "============================================================"
+  fi
+  echo "============================================================"
+  echo " >>>>> Configuring DB ENDPOINTS"
+  sed -i 's/{{USER_DB}}/'$USER_DB'/g' context.xml
+  sed -i 's/{{PASSWORD_DB}}/'$PASSWORD_DB'/g' context.xml
+  sed -i 's/{{DB_ENDPOINT}}/'$DB_ENDPOINT'/g' context.xml
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Configuring DW ENDPOINTS"
+  sed -i 's/{{USER_DW}}/'$USER_DW'/g' context.xml
+  sed -i 's/{{PASSWORD_DW}}/'$PASSWORD_DW'/g' context.xml
+  sed -i 's/{{DW_ENDPOINT}}/'$DW_ENDPOINT'/g' context.xml
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Configuring REDIS ENDPOINTS"
+  sed -i 's/{{REDIS_ENDPOINT}}/'$REDIS_ENDPOINT'/g' context.xml
+  sed -i 's/{{REDIS_PORT}}/'$REDIS_PORT'/g' context.xml
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Configuring RABBIT MQ ENDPOINTS"
+  sed -i 's/{{RABBITMQ_HOST}}/'$RABBITMQ_HOST'/g' context.xml
+  sed -i 's/{{RABBITMQ_PORT}}/'$RABBITMQ_PORT'/g' context.xml
+  sed -i 's/{{RABBITMQ_USER}}/'$RABBITMQ_USER'/g' context.xml
+  sed -i 's/{{RABBITMQ_PASSWORD}}/'$RABBITMQ_PASSWORD'/g' context.xml
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Configuring Memcache Endpoints"
+  MEMCACHENODES=$(/usr/bin/aws elasticache describe-cache-clusters --region $REGION --cache-cluster-id $MEMCACHE_CLUSTER --show-cache-node-info | jq -r '.CacheClusters[0].CacheNodes' | jq '.[] | .Endpoint.Address')
+  x=1
+  for i in $MEMCACHENODES
+  do
+    RES=$RES'n'$x':'$i':'$MEMPORT','
+    RES2=$RES2$i':'$MEMPORT','
+    x=$(($x+1))
+  done
+  NODES1=$(echo $RES2 | sed -e 's/"//g' | sed -e 's/,$//g')
+  NODES2=$(echo $RES | sed -e 's/"//g' | sed -e 's/,$//g')
+  sed -i 's/{{NODES_LIST1}}/'$NODES1'/g' context.xml
+  sed -i 's/{{NODES_LIST2}}/'$NODES2'/g' context.xml
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Moving context.xml --> /opt/tomcat/conf"
+  cp context.xml /opt/tomcat/conf/context.xml
+  echo "============================================================"
+
+  if [ $MOUNT_EFS = "Yes" ]
+  then
+    echo "============================================================"
+    echo " >>>>> Mounting efs file system"
+    sudo yum -y install amazon-efs-utils
+    sudo mount -t efs $EFS_ENDPOINT:/ /opt/nfs
+    echo "============================================================"
+  fi
+
+  if [ $RABBIT_CONF = "Yes" ]
+  then
+    echo "============================================================"
+    echo " >>>>> Configuring rabbitmq node name"
+    cp files/rabbitmq-env.conf.template rabbitmq-env.conf
+    sed -i 's/{{NODE_ID}}/'$NODE_ID'/g' rabbitmq-env.conf
+    cp rabbitmq-env.conf /etc/rabbitmq/rabbitmq-env.conf
+    sudo pkill -9 -f epmd
+    sudo pkill -9 -f erl
+    echo "============================================================"
+  fi
+
+fi
+
+if [ $CONF_TYPE = 'rts' ]
+then
+  echo "============================================================"
+  echo " >>>>> using config.js"
+  cp files/rts_conf.js.template config.js
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Configuring REDIS ENDPOINTS"
+  sed -i 's/{{REDIS_ENDPOINT}}/'$REDIS_ENDPOINT'/g' config.js
+  sed -i 's/{{REDIS_PORT}}/'$REDIS_PORT'/g' config.js
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Configuring RABBIT MQ ENDPOINTS"
+  sed -i 's/{{RABBITMQ_HOST}}/'$RABBITMQ_HOST'/g' config.js
+  sed -i 's/{{RABBITMQ_PORT}}/'$RABBITMQ_PORT'/g' config.js
+  sed -i 's/{{RABBITMQ_USER}}/'$RABBITMQ_USER'/g' config.js
+  sed -i 's/{{RABBITMQ_PASSWORD}}/'$RABBITMQ_PASSWORD'/g' config.js
+  echo "============================================================"
+
+  echo "============================================================"
+  echo " >>>>> Moving config.js --> /opt/node/config.js"
+  cp config.js /opt/node/rts/config/index.js
+  echo "============================================================"
+fi

@@ -23,7 +23,11 @@ Parameters:
   S3BriefCaseArn:
     Type: String
     Description: ARN for the Brief Case bucket
-  
+
+  S3ConfigFiles:
+    Type: String
+    Description: ARN Of the bucket where configuration files are stored
+
   S3BatchReportArn:
     Type: String
     Description: ARN for the Batch report bucket
@@ -43,10 +47,10 @@ Parameters:
   TomcatSecurityGroup:
     Type: String
     Description: Opsworks security group
-  
+
   RabbitSecurityGroup:
     Type: String
-    Description: RabbitMq security group 
+    Description: RabbitMq security group
 
   RedisSecurityGroup:
     Type: String
@@ -117,6 +121,9 @@ Resources:
             - ec2.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
       Policies:
         - PolicyName: !Sub ${Identifier}-${Environment}-rts-policy
           PolicyDocument:
@@ -127,6 +134,12 @@ Resources:
               Resource:
               - !Ref S3BuildBucketArn
               - !Sub ${S3BuildBucketArn}/*
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
+            - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
             - Effect: Allow
               Action:
               - route53:ChangeResourceRecordSets
@@ -136,7 +149,11 @@ Resources:
               - !Sub arn:aws:route53:::hostedzone/${Route53HostedZoneId}
             - Effect: Allow
               Action:
-              - '*'
+              - opsworks:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
               Resource: '*'
       Tags:
       - Key: Name
@@ -147,13 +164,13 @@ Resources:
         Value: !Ref ProjectName
       - Key: Environment
         Value: !Ref Environment
-  
+
   RtsInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: !Sub ${Identifier}-${Environment}-rtsprofile
       Path: /
-      Roles: 
+      Roles:
         - !Ref RtsEc2Role
 
   RtsOpsworksLayer:
@@ -164,7 +181,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt RtsInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -173,10 +190,10 @@ Resources:
         Setup:
         - ops::rts
         - ops-icinga2::client
-        Configure:
-        - ops::dns-add
-        Shutdown:
-        - ops::dns-delete
+        # Configure:
+        # - ops::dns-add
+        # Shutdown:
+        # - ops::dns-delete
       Shortname: !Sub ${Identifier}-${Environment}-rt
       Tags:
       - Key: NameLayer
@@ -202,6 +219,9 @@ Resources:
             - ec2.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
       Policies:
         - PolicyName: !Sub ${Identifier}-${Environment}-tomcat-policy
           PolicyDocument:
@@ -218,6 +238,12 @@ Resources:
               - !Sub ${S3BriefCaseArn}/*
               - !Ref S3BatchReportArn
               - !Sub ${S3BatchReportArn}/*
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
+            - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
             - Effect: Allow
               Action:
               - logs:CreateLogGroup
@@ -228,7 +254,11 @@ Resources:
               - arn:aws:logs:*:*:*
             - Effect: Allow
               Action:
-              - '*'
+              - opsworks:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
               Resource: '*'
       Tags:
       - Key: Name
@@ -239,13 +269,13 @@ Resources:
         Value: !Ref ProjectName
       - Key: Environment
         Value: !Ref Environment
-  
+
   TomcatInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: !Sub ${Identifier}-${Environment}-tomcat-profile
       Path: /
-      Roles: 
+      Roles:
         - !Ref TomcatEc2Role
 
   TomcatOpsworksLayer:
@@ -256,7 +286,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -265,6 +295,7 @@ Resources:
         Setup:
         - ops::tomcat
         - ops-icinga2::client
+        - ops::efs
       Shortname: !Sub ${Identifier}-${Environment}-tomcat
       Tags:
       - Key: NameLayer
@@ -290,6 +321,9 @@ Resources:
             - ec2.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
       Policies:
         - PolicyName: !Sub ${Identifier}-${Environment}-tomcatvideo-policy
           PolicyDocument:
@@ -303,8 +337,21 @@ Resources:
               Resource:
               - !Sub arn:aws:route53:::hostedzone/${Route53HostedZoneId}
             - Effect: Allow
+              Action: s3:*
+              Resource:
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
+            - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
+            - Effect: Allow
               Action:
-              - '*'
+              - opsworks:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
               Resource: '*'
       Tags:
       - Key: Name
@@ -321,7 +368,7 @@ Resources:
     Properties:
       InstanceProfileName: !Sub ${Identifier}-${Environment}-tomcatvideo-profile
       Path: /
-      Roles: 
+      Roles:
         - !Ref TomcatVideEc2Role
 
   TomcatVideoOpsworksLayer:
@@ -332,7 +379,7 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
+      AutoAssignPublicIps: true
       CustomInstanceProfileArn: !GetAtt TomcatVideoInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
@@ -352,6 +399,54 @@ Resources:
         Value: !Ref Environment
 
   ########################## METRICS ######################################
+  MetricsEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Identifier}-${Environment}-metrics-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${Environment}-metrics-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action: s3:*
+              Resource:
+              - !Ref S3ConfigFiles
+              - !Sub ${S3ConfigFiles}/*
+            - Effect: Allow
+              Action: 
+              - elasticache:*
+              Resource: "*"
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - opsworks:*
+              Resource: '*'
+
+
+  MetricsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Identifier}-${Environment}-metrics-profile
+      Path: /
+      Roles:
+        - !Ref MetricsEc2Role
+
   MetricsOpsworksLayer:
     Type: AWS::OpsWorks::Layer
     Properties:
@@ -360,11 +455,11 @@ Resources:
       Type: custom
       EnableAutoHealing: false
       AutoAssignElasticIps: false
-      AutoAssignPublicIps: true 
-      CustomInstanceProfileArn: !GetAtt TomcatInstanceProfile.Arn
+      AutoAssignPublicIps: true
+      CustomInstanceProfileArn: !GetAtt MetricsInstanceProfile.Arn
       CustomSecurityGroupIds:
       - !Ref OpsworksSecurityGroup
-      - !Ref TomcatVideoSecurityGroup
+      - !Ref TomcatSecurityGroup
       - !Ref RabbitSecurityGroup
       CustomRecipes:
         Setup:
@@ -415,6 +510,10 @@ Outputs:
     Description: tomcat video role
     Value: !GetAtt TomcatVideEc2Role.Arn
 
+  MetricsEc2Role:
+    Description: metrics ec2 role
+    Value: !GetAtt MetricsEc2Role.Arn
+
   RtsInstanceProfileArn:
     Description: RTS Instance profile
     Value: !GetAtt RtsInstanceProfile.Arn
@@ -427,3 +526,10 @@ Outputs:
     Description: Tomcat Video Instance Profile
     Value: !GetAtt TomcatVideoInstanceProfile.Arn
 
+  MetricsInstanceProfile:
+    Description: Metrics node instance profile
+    Value: !GetAtt MetricsInstanceProfile.Arn
+
+  MetricsProfile:
+    Description: metrics profile for the instance
+    Value: !Ref MetricsInstanceProfile

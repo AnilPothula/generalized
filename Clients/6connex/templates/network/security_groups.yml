@@ -138,6 +138,14 @@ Resources:
         FromPort: 8081
         ToPort: 8081
         CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: !Ref MgmCidr
+      - IpProtocol: tcp
+        FromPort: 8081
+        ToPort: 8081
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcat-sg
@@ -159,6 +167,10 @@ Resources:
         FromPort: 3306
         ToPort: 3306
         CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-rds-sg
@@ -180,6 +192,10 @@ Resources:
         FromPort: 6379
         ToPort: 6379
         CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 6379
+        ToPort: 6379
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-redis-sg
@@ -201,6 +217,10 @@ Resources:
         FromPort: 11211
         ToPort: 11211
         CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 11211
+        ToPort: 11211
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-memcache-sg
@@ -222,6 +242,10 @@ Resources:
         FromPort: 5672
         ToPort: 5672
         CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 5672
+        ToPort: 5672
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-rabbitmq-sg
@@ -268,9 +292,34 @@ Resources:
       GroupDescription: !Sub Tomcat Video security group in env ${Environment}
       GroupName: !Sub ${Identifier}-${Environment}-tomcatvideo-sg
       VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 8081
+        ToPort: 8081
+        CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: !Ref MgmCidr
+      - IpProtocol: tcp
+        FromPort: 8081
+        ToPort: 8081
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-tomcat-sg
+        Value: !Sub ${Identifier}-${Environment}-tomcatvideo-sg
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -337,7 +386,7 @@ Outputs:
 
   RabbitSg:
     Description: Security Group for Rabbit
-    Value: !Ref RedisSecurityGroup
+    Value: !Ref RabbitMqSecurityGroup
 
   EfsSg:
     Description: Security Group for EFS

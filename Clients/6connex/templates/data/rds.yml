@@ -30,6 +30,10 @@ Parameters:
   AllocatedStorageDb:
     Type: String
     Description: allocated Storage for db6c database instance
+  EncryptDb:
+    Type: String
+    Default: 'true'
+    Description: enables encryption on database
   ################## DB ##############################
   UserDw:
     Type: String
@@ -41,6 +45,10 @@ Parameters:
   ClassDw:
     Type: String
     Description: Class for dw6c database instance
+  EncryptDw:
+    Type: String
+    Default: 'true'
+    Description: enables encryption on database
   AllocatedStorageDw:
     Type: String
     Description: allocated Storage for dw6c database instance
@@ -52,6 +60,10 @@ Parameters:
     - true
     - false
   ################## general ##############################
+  KmsKeyId:
+    Type: String
+    Default: ''
+    Description: Kms key for encryption
   OwnerName:
     Type: String
     Description: An arbitrary tag name for the owner of these resources
@@ -65,6 +77,7 @@ Parameters:
 Conditions:
 
   IsProduction: !Equals [!Ref Environment, 'prod']
+  NoKmsKey: !Equals [!Ref KmsKeyId, '']
 
 Resources:
   SubnetGroup:
@@ -82,30 +95,65 @@ Resources:
       Parameters:
         log_bin_trust_function_creators: 1
 
+  DbCredentialsSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: !Sub Db credentials secret in env ${Environment}
+      Name: !Sub database/${Identifier}/${Environment}/DbCredentials
+      SecretString: !Sub '{"username":"${UserDb}","password":"${PasswordDb}"}'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-db-credentials
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
   DbInstance:
     Type: AWS::RDS::DBInstance
     DependsOn:
       - SubnetGroup
       - ParameterGroup
+      - DbCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-db6c
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6codb
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
       StorageType: io1
       Iops: 1000
       BackupRetentionPeriod: 7
-      MasterUsername: !Ref UserDb
-      MasterUserPassword: !Ref PasswordDb
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DbCredentialsSecrets}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DbCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDb
       AllocatedStorage: !Ref AllocatedStorageDb
       DBParameterGroupName: !Ref ParameterGroup
+      StorageEncrypted: !Ref EncryptDb
+      KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
       - !Ref RdsSecurityGroup
       DBSubnetGroupName: !Ref SubnetGroup
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-db6c
+        Value: !Sub ${Identifier}-${Environment}-6cdb
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  DwCredentialsSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: !Sub Dw credentials secret in env ${Environment}
+      Name: !Sub database/${Identifier}/${Environment}/DwCredentials
+      SecretString: !Sub '{"username":"${UserDw}","password":"${PasswordDw}"}'
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-dw-credentials
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -119,25 +167,28 @@ Resources:
     DependsOn:
       - SubnetGroup
       - ParameterGroup
+      - DwCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6c
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6codw
       Engine: mysql
       EngineVersion: 5.6.44
       MultiAZ: !Ref MultiAz
       StorageType: io1
       Iops: 1000
       BackupRetentionPeriod: 7
-      MasterUsername: !Ref UserDw
-      MasterUserPassword: !Ref PasswordDw
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DwCredentialsSecrets}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DwCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDw
       AllocatedStorage: !Ref AllocatedStorageDw
       DBParameterGroupName: !Ref ParameterGroup
+      StorageEncrypted: !Ref EncryptDw
+      KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
       - !Ref RdsSecurityGroup
       DBSubnetGroupName: !Ref SubnetGroup
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-dw6c
+        Value: !Sub ${Identifier}-${Environment}-6cdw
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName

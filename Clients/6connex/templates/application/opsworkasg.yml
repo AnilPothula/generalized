@@ -2,7 +2,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: >-
-  Autoscaling group for opswork instances based on load.
+  Autoscaling group for opsworks
 
 Parameters:
 
@@ -10,6 +10,80 @@ Parameters:
     Type: String
     Default: 6connex
     Description: A name identifier for the resources
+
+  IdentifierRds:
+    Type: String
+    Description: Identifier for rds stack
+
+  IdentifierMetrics:
+    Type: String
+    Description: Identifier for metrics stack
+
+  S3ConfigFiles:
+    Type: String
+    Default: ''
+    Description: S3 Bucket to download configuration files
+
+  DbEndpoint:
+    Type: String
+    Default: ''
+    Description: db endpoint value
+
+  DwEndpoint:
+    Type: String
+    Default: ''
+    Description: dw endpoint value
+
+  EfsEndpoint:
+    Type: String
+    Default: ''
+    Description: efs endpoint value
+
+  MountEfs:
+    Type: String
+    Default: 'No'
+    Description: determines if configuration mounts efs into the instance
+    AllowedValues:
+    - 'Yes'
+    - 'No'
+
+  RedisEndpoint:
+    Type: String
+    Default: ''
+    Description: redis endpoint
+
+  RedisPort:
+    Type: Number
+    Default: 0
+    Description: redis port
+
+  RabbitMqHost:
+    Type: String
+    Default: ''
+    Description: rabbit mq host
+
+  RabbitMqPort:
+    Type: Number
+    Default: 0
+    Description: rabbit mq port to use
+
+  MemcacheClusterId:
+    Type: String
+    Default: ''
+    Description: memcache cluster id
+
+  MemcachePort:
+    Type: Number
+    Default: 0
+    Description: memcache port number
+
+  ConfigurationType:
+    Type: String
+    Default: 'rts'
+    Description: type of configuration for files
+    AllowedValues:
+    - rts
+    - other
 
   VpcId:
     Type: String
@@ -30,10 +104,6 @@ Parameters:
   LayerId:
     Type: String
     Description: Opswork layer id
-
-  # SecurityGroup:
-  #   Type: String
-  #   Description: Security group for the instances
 
   SecurityGroupsIds:
     Type: List<String>
@@ -62,15 +132,20 @@ Parameters:
     Default: ''
     Description: Arn for the target group attached to the auto scaling group
 
+  TargetGroupFullName:
+    Type: String
+    Default: ''
+    Description: target group full name
+
+  ApplicationLoadBalancerFullName:
+    Type: String
+    Default: ''
+    Description: Application load Balancer's full name
+
   DesiredCapacity:
     Type: Number
     Default: 2
     Description: Desired capacity
-
-  ScalingUpAdjustment:
-    Type: Number
-    Default: 1
-    Description: The amount by which to scale up.
 
   MaxSize:
     Type: Number
@@ -81,6 +156,21 @@ Parameters:
     Type: Number
     Default: 0
     Description: Min instances
+
+  NumberOfRequestsTargetValue:
+    Type: Number
+    Default: 0
+    Description: Target value for the number of requests completed per target in an Application Load Balancer target group
+
+  CpuAutoScalingTargetValue:
+    Type: Number
+    Default: 0
+    Description: Target value for the Average CPU utilization of the Auto Scaling group (Optional)
+
+  ScalingUpAdjustment:
+    Type: Number
+    Default: 1
+    Description: The amount by which to scale up.
 
   LowPeriod:
     Type: Number
@@ -113,7 +203,7 @@ Parameters:
     Type: Number
     Default: 80
     Description: Threshold to scale up
-  # ############### Stack ##############
+  ############### Stack ##############
 
   OwnerName:
     Type: String
@@ -132,7 +222,15 @@ Parameters:
 
 Conditions:
   NoTargetGroup: !Equals [!Ref TargetGroupArn, '']
-
+  NoCpuTargetPolicy: !Equals [!Ref CpuAutoScalingTargetValue, 0]
+  NoRequestTargetPolicy: !Equals [!Ref NumberOfRequestsTargetValue, 0]
+  CreateRequestsTargetPolicy: !And
+  - !Not [Condition: NoTargetGroup]
+  - !Not [Condition: NoRequestTargetPolicy]
+  CreateCpuTargetPolicy: !Not [ Condition: NoCpuTargetPolicy]
+  NoTargetTracking: !And
+  - !Not [Condition: CreateRequestsTargetPolicy]
+  - !Not [Condition: CreateCpuTargetPolicy]
 Resources:
 
   ############### lambda function ###############
@@ -247,10 +345,59 @@ Resources:
             #!/bin/bash
             sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
             #pip install --upgrade awscli
+
             INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
             /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
             /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+            /usr/bin/aws configure set default.region ${AWS::Region}
 
+            echo "ssm agent"
+            sudo start amazon-ssm-agent
+
+            # installing jq
+            sudo yum install -y jq
+
+            # updating aws cli
+            sudo yum update -y aws-cli
+
+            # getting db credentials
+            echo export USER_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
+            echo export PASSWORD_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+            echo export DB_ENDPOINT=${DbEndpoint} >> /etc/environment
+
+            # getting dw credentials
+            echo export USER_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
+            echo export PASSWORD_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+            echo export DW_ENDPOINT=${DwEndpoint} >> /etc/environment
+
+            # settinig redis endpoint and port
+            echo export REDIS_ENDPOINT=${RedisEndpoint} >> /etc/environment
+            echo export REDIS_PORT=${RedisPort} >> /etc/environment
+
+            # settinig rabbit mq information
+            echo export RABBITMQ_HOST=${RabbitMqHost} >> /etc/environment
+            echo export RABBITMQ_PORT=${RabbitMqPort} >> /etc/environment
+            echo export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${IdentifierMetrics}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
+            echo export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${IdentifierMetrics}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
+
+            # setting region and memcache name to grab the nodes
+            echo export REGION=${AWS::Region} >> /etc/environment
+            echo export MEMCACHE_CLUSTER=${MemcacheClusterId} >> /etc/environment
+            echo export MEMPORT=${MemcachePort} >> /etc/environment
+
+            # setting the type configuration for the nodes
+            echo export CONF_TYPE=${ConfigurationType} >> /etc/environment
+            echo export ENV=${Environment} >> /etc/environment
+
+            # setting the efs endpoint
+            echo export EFS_ENDPOINT=${EfsEndpoint} >> /etc/environment
+            echo export MOUNT_EFS=${MountEfs} >> /etc/environment
+
+            # grabbing the files from s3 to set everything
+            echo "configuration files"
+            sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /home/configuration
+            cd /home/configuration
+            sudo sh configuration.sh.template
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -287,8 +434,36 @@ Resources:
         Value: !Ref StackId
 
   #################### scaling policies ##############################
+  RequestsPerNodePolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Condition: CreateRequestsTargetPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Join
+            - '/'
+            - - !Ref ApplicationLoadBalancerFullName
+              - !Ref TargetGroupFullName
+        TargetValue: !Ref NumberOfRequestsTargetValue
+
+  CpuTargetPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Condition: CreateCpuTargetPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: !Ref CpuAutoScalingTargetValue
+
+
   ScaleUpPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
+    Condition: NoTargetTracking
     Properties:
       AdjustmentType: ChangeInCapacity
       AutoScalingGroupName: !Ref AutoScalingGroup
@@ -297,6 +472,7 @@ Resources:
 
   ScaleDownPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
+    Condition: NoTargetTracking
     Properties:
       AdjustmentType: ChangeInCapacity
       AutoScalingGroupName: !Ref AutoScalingGroup
@@ -305,6 +481,7 @@ Resources:
 
   CPUAlarmLow:
     Type: AWS::CloudWatch::Alarm
+    Condition: NoTargetTracking
     Properties:
       AlarmDescription: !Sub Scale-down if CPU < ${LowCpuTreshold}% for ${LowPeriod} seconds
       MetricName: CPUUtilization
@@ -321,6 +498,7 @@ Resources:
 
   CPUAlarmHigh:
     Type: AWS::CloudWatch::Alarm
+    Condition: NoTargetTracking
     Properties:
       AlarmDescription: !Sub Scale-up if CPU > ${HighCpuTreshold}% for ${HighPeriod} minutes
       MetricName: CPUUtilization
