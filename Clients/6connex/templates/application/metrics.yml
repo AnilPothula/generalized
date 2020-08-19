@@ -11,6 +11,10 @@ Parameters:
     Default: 6connex
     Description: A name identifier for the resources
 
+  BuildsBucket:
+    Type: String
+    Description: builds bucket
+
   ImageId:
     Type: String
     Description: Amazon Linux image id
@@ -115,7 +119,7 @@ Resources:
       IamInstanceProfile: !Ref InstanceProfile
       InstanceType: !Ref InstanceType
       SecurityGroupIds: !Ref SecurityGroupsIds
-      SubnetId: !Select [ 1, !Ref SubnetsIds ]
+      SubnetId: !Select [ 2, !Ref SubnetsIds ]
       UserData:
         Fn::Base64: !Sub |
             #!/bin/bash
@@ -175,6 +179,24 @@ Resources:
             sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /home/configuration
             cd /home/configuration
             sudo sh configuration.sh.template
+
+            # executing jenkins job
+            # build parameters
+            echo BUILD_NUMBER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Builds/BuildNumber" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_USER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/username" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_PASS=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/password" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_IP=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/IpAddress" | jq ".Parameters" | jq ".[] .Value") >>  jenkins_params.py
+            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/MetricsJob" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo ID_INSTANCE=\"$(curl  http://169.254.169.254/latest/meta-data/instance-id)\" >> jenkins_params.py
+            echo "calling jenkins job"
+            yum install python36 -y
+            curl -O https://bootstrap.pypa.io/get-pip.py
+            sudo python3 get-pip.py
+            /usr/local/bin/pip3 install jenkinsapi
+            sudo python3 jenkins_tringger.py.template
+            sudo rm -rf jenkins_params.py
+            cd /
+            sudo rm -rf /home/configuration
 
       Tags:
       - Key: Name

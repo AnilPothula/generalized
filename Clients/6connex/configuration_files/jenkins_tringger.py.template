@@ -1,0 +1,35 @@
+import os
+from jenkinsapi.jenkins import Jenkins
+from jenkinsapi.utils.crumb_requester import CrumbRequester
+import jenkins_params
+crumb=CrumbRequester(username=jenkins_params.JENKINS_USER, password=jenkins_params.JENKINS_PASS, baseurl='http://'+str(jenkins_params.JENKINS_IP)+':8080')
+server = Jenkins('http://'+str(jenkins_params.JENKINS_IP)+':8080', username=jenkins_params.JENKINS_USER, password=jenkins_params.JENKINS_PASS, requester=crumb)
+
+
+if jenkins_params.JENKINS_JOB == 'Tomcat_Remote_Job':
+    print(' >> parameters for tomcat job')
+    parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER, 'LIFE_CYCLE_HOOK_NAME': jenkins_params.LIFE_CYCLE_HOOK_NAME, 'AUTO_SCALING_GROUP_NAME': jenkins_params.AUTO_SCALING_GROUP_NAME, 'JOB_REGION': jenkins_params.JOB_REGION}
+    pass
+elif jenkins_params.JENKINS_JOB == 'RTS_Remote_Job':
+    print(' >> parameters for rts job')
+    parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER, 'LIFE_CYCLE_HOOK_NAME': jenkins_params.LIFE_CYCLE_HOOK_NAME, 'AUTO_SCALING_GROUP_NAME': jenkins_params.AUTO_SCALING_GROUP_NAME, 'JOB_REGION': jenkins_params.JOB_REGION}
+    pass
+elif jenkins_params.JENKINS_JOB == 'Tomcat_Video_Remote_Jon':
+    print(' >> parameters for tomcat video job')
+    parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER, 'LIFE_CYCLE_HOOK_NAME': jenkins_params.LIFE_CYCLE_HOOK_NAME, 'AUTO_SCALING_GROUP_NAME': jenkins_params.AUTO_SCALING_GROUP_NAME, 'JOB_REGION': jenkins_params.JOB_REGION}
+    pass
+elif jenkins_params.JENKINS_JOB == 'Metrics_Remote_Job':
+    print(' >> parameters for metrics job')
+    parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER}
+    pass
+
+print('>> calling job '+str(jenkins_params.JENKINS_JOB))
+job = server[jenkins_params.JENKINS_JOB]
+qi = job.invoke(build_params=parameters)
+
+
+if qi.is_queued() or qi.is_running():
+    print('>> wating for job to complete....')
+    qi.block_until_complete()
+
+print('>> Finish deploying....')

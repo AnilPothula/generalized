@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Template to create custom resource from lambda
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for S3 Bucket to be created
+  BuildNumber:
+    Type: String
+    Description: BuildNumber to deploy application
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Resources:
+
+  BuildNumberParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Builds/BuildNumber
+      Type: String
+      Value: !Ref BuildNumber
+      Description: !Sub build number to deploy on instances on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Builds/BuildNumber
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+Outputs:
+
+  BuildNumberName:
+    Description: db endpoint parameter name
+    Value: !Sub /${Environment}/${Identifier}/Builds/BuildNumber
+

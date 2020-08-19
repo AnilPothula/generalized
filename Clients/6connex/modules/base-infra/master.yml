@@ -12,14 +12,13 @@ Parameters:
   S3BucketName:
     Type: String
     Description: bucket where CloudFormation templates are stored
-  OwnerName:
-    Type: String
-    Default: 6connex
-    Description: An arbitrary tag name for the owner of these resources
   Environment:
     Type: String
     Default: dev
     Description: Environment name to append to resources names and tags
+  DefaultBuildNumber:
+    Type: String
+    Description: default build number used to deploy application on these Environment
   ##################### MANAGEMENT ################
   VpcCidr:
     Type: String
@@ -249,7 +248,7 @@ Metadata:
       Parameters:
       - Identifier
       - S3BucketName
-      - OwnerName
+      - DefaultBuildNumber
       - Environment
       - S3BuildsBucketName
     - Label:
@@ -351,8 +350,8 @@ Metadata:
         default: 'Name to append to the resources'
       S3BucketName:
         default: 'S3 Bucket Name'
-      OwnerName:
-        default: 'Owner of the resources'
+      DefaultBuildNumber:
+        default: 'Build Number to Deploy on Instances (6connex-builds)'
       Environment:
         default: 'Environment of the infrastructure deployment (default: dev)'
       VpcCidr:
@@ -568,7 +567,7 @@ Resources:
         RequesterVpcId: !FindInMap [ VpcPeeringConfiguration, management, MgmVpcId ]
         RequesterVpcCidrBlock: !FindInMap [VpcPeeringConfiguration, management, MgmCidr]
         MgmtRegion: !FindInMap [VpcPeeringConfiguration, management, MgmtRegion]
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -581,7 +580,7 @@ Resources:
         VpcId: !GetAtt Network.Outputs.VpcId
         VpcCidr: !Ref VpcCidr
         MgmCidr: !FindInMap [VpcPeeringConfiguration, management, MgmCidr]
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -634,7 +633,7 @@ Resources:
             - 0
             - Fn::GetAZs: !Ref 'AWS::Region'
         PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -676,7 +675,7 @@ Resources:
                 - 1
                 - Fn::GetAZs: !Ref 'AWS::Region'
         PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -705,7 +704,7 @@ Resources:
         MultiAz: !Ref RdsMultiAz
         #KMS
         KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -721,7 +720,7 @@ Resources:
               Id: !Ref Identifier
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
 
   S3BriefCase:
     Type: AWS::CloudFormation::Stack
@@ -735,7 +734,7 @@ Resources:
               Id: !Ref Identifier
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
 
   S3BatchReport:
     Type: AWS::CloudFormation::Stack
@@ -749,7 +748,7 @@ Resources:
               Id: !Ref Identifier
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
 
   OpsworksStack:
     Type: AWS::CloudFormation::Stack
@@ -776,7 +775,18 @@ Resources:
         OpsworksSshSecretId: !Ref OpsworksSshSecretId
         GitBranch: !Ref GitBranch
         VpcId: !GetAtt Network.Outputs.VpcId
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  BuildNumberParameter:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/BuildParameter.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        BuildNumber: !Ref DefaultBuildNumber
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -802,7 +812,7 @@ Resources:
         RabbitSecurityGroup: !GetAtt SecurityGroups.Outputs.RabbitSg
         RedisSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
         TomcatVideoSecurityGroup: !GetAtt SecurityGroups.Outputs.TomcatVideoSg
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -818,7 +828,7 @@ Resources:
         AlbSecurityGroup: !GetAtt SecurityGroups.Outputs.AlbSg
         SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.PublicSubnetIds] ]
         AlbCertificateArn: !Ref AlbCertificateArn
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -830,6 +840,7 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
       Parameters:
         Identifier: !Ref Identifier
+        BuildsBucket: !Ref S3BuildsBucketName
         ImageId: !Ref MetricsImageId
         StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
         LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
@@ -843,7 +854,7 @@ Resources:
         RabbitMqPassword: !Ref RabbitMqPassword
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
         ConfigurationType: other
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -865,7 +876,7 @@ Resources:
         MetricsPriority: 3
         TomcatDomain: !Ref TomcatDomain
         TomcatPriority: 2
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -906,8 +917,9 @@ Resources:
 
         S3ConfigFiles: !Ref S3BucketName
         ConfigurationType: rts
+        JenkinsJobName: RtsJob
 
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -949,8 +961,9 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         ConfigurationType: other
         MountEfs: 'Yes'
+        JenkinsJobName: TomcatJob
 
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -986,6 +999,7 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         MountEfs: 'Yes'
         ConfigurationType: other
+        JenkinsJobName: TomcatVideoJob
 
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
@@ -998,7 +1012,7 @@ Resources:
         LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
         HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
         HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 

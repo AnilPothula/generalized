@@ -15,6 +15,14 @@ Parameters:
     Type: String
     Description: server name to use, (rts, tomcat, tomcatvideo)
 
+  JenkinsJobName:
+    Type: String
+    Description: jenkins job to execute
+    AllowedValues:
+    - RtsJob
+    - TomcatJob
+    - TomcatVideoJob
+
   S3ConfigFiles:
     Type: String
     Default: ''
@@ -350,6 +358,28 @@ Resources:
             cd /home/configuration
             sudo sh configuration.sh.template
 
+            sleep 2m
+
+            # executing jenkins job
+            # build parameters
+            echo BUILD_NUMBER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Builds/BuildNumber" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_USER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/username" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_PASS=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/password" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_IP=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/IpAddress" | jq ".Parameters" | jq ".[] .Value") >>  jenkins_params.py
+            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/${JenkinsJobName}" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo ID_INSTANCE=\"$(curl  http://169.254.169.254/latest/meta-data/instance-id)\" >> jenkins_params.py
+            echo LIFE_CYCLE_HOOK_NAME=\"${Identifier}-${ServerBaseName}-${Environment}-lf\" >> jenkins_params.py
+            echo AUTO_SCALING_GROUP_NAME=\"${Identifier}-${ServerBaseName}-${Environment}-asg\" >> jenkins_params.py
+            echo JOB_REGION=\"${AWS::Region}\" >> jenkins_params.py
+
+            echo "calling jenkins job"
+            yum install python36 -y
+            curl -O https://bootstrap.pypa.io/get-pip.py
+            sudo python3 get-pip.py
+            /usr/local/bin/pip3 install jenkinsapi
+            sudo python3 jenkins_tringger.py.template
+            sudo rm -rf jenkins_params.py
+            
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -383,6 +413,15 @@ Resources:
       - Key: opsworks_stack_id
         PropagateAtLaunch: true
         Value: !Ref StackId
+
+  LifeCycleHook:
+    Type: AWS::AutoScaling::LifecycleHook
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      DefaultResult: ABANDON
+      HeartbeatTimeout: 1500
+      LifecycleHookName: !Sub ${Identifier}-${ServerBaseName}-${Environment}-lf
+      LifecycleTransition: autoscaling:EC2_INSTANCE_LAUNCHING
 
   #################### scaling policies ##############################
   RequestsPerNodePolicy:
