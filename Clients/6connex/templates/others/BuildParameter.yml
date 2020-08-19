@@ -34,6 +34,59 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref  Environment
 
+  JenkinsMetricsJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/MetricsJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_Metrics_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/MetricsJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+  
+  JenkinsTomcatJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_Tomcat_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  JenkinsTomcatVideoJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatVideoJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_Tomcat_Video_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatVideoJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  JenkinsRtsJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/RtsJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_RTS_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/RtsJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+
 Outputs:
 
   BuildNumberName:

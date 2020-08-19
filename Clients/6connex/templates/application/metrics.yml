@@ -119,7 +119,7 @@ Resources:
       IamInstanceProfile: !Ref InstanceProfile
       InstanceType: !Ref InstanceType
       SecurityGroupIds: !Ref SecurityGroupsIds
-      SubnetId: !Select [ 2, !Ref SubnetsIds ]
+      SubnetId: !Select [ 1, !Ref SubnetsIds ]
       UserData:
         Fn::Base64: !Sub |
             #!/bin/bash
@@ -186,7 +186,7 @@ Resources:
             echo JENKINS_USER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/username" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
             echo JENKINS_PASS=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/password" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
             echo JENKINS_IP=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/IpAddress" | jq ".Parameters" | jq ".[] .Value") >>  jenkins_params.py
-            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/MetricsJob" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Jenkins/MetricsJob" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
             echo ID_INSTANCE=\"$(curl  http://169.254.169.254/latest/meta-data/instance-id)\" >> jenkins_params.py
             echo "calling jenkins job"
             yum install python36 -y
@@ -195,8 +195,6 @@ Resources:
             /usr/local/bin/pip3 install jenkinsapi
             sudo python3 jenkins_tringger.py.template
             sudo rm -rf jenkins_params.py
-            cd /
-            sudo rm -rf /home/configuration
 
       Tags:
       - Key: Name

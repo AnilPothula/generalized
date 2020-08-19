@@ -6,19 +6,19 @@ crumb=CrumbRequester(username=jenkins_params.JENKINS_USER, password=jenkins_para
 server = Jenkins('http://'+str(jenkins_params.JENKINS_IP)+':8080', username=jenkins_params.JENKINS_USER, password=jenkins_params.JENKINS_PASS, requester=crumb)
 
 
-if jenkins_params.JENKINS_JOB == 'Tomcat_Remote_Job':
+if 'Tomcat_Job_Remote' in jenkins_params.JENKINS_JOB:
     print(' >> parameters for tomcat job')
     parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER, 'LIFE_CYCLE_HOOK_NAME': jenkins_params.LIFE_CYCLE_HOOK_NAME, 'AUTO_SCALING_GROUP_NAME': jenkins_params.AUTO_SCALING_GROUP_NAME, 'JOB_REGION': jenkins_params.JOB_REGION}
     pass
-elif jenkins_params.JENKINS_JOB == 'RTS_Remote_Job':
+elif 'RTS_Job_Remote' in jenkins_params.JENKINS_JOB:
     print(' >> parameters for rts job')
     parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER, 'LIFE_CYCLE_HOOK_NAME': jenkins_params.LIFE_CYCLE_HOOK_NAME, 'AUTO_SCALING_GROUP_NAME': jenkins_params.AUTO_SCALING_GROUP_NAME, 'JOB_REGION': jenkins_params.JOB_REGION}
     pass
-elif jenkins_params.JENKINS_JOB == 'Tomcat_Video_Remote_Jon':
+elif 'Tomcat_Video_Job_Remote' in jenkins_params.JENKINS_JOB :
     print(' >> parameters for tomcat video job')
     parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER, 'LIFE_CYCLE_HOOK_NAME': jenkins_params.LIFE_CYCLE_HOOK_NAME, 'AUTO_SCALING_GROUP_NAME': jenkins_params.AUTO_SCALING_GROUP_NAME, 'JOB_REGION': jenkins_params.JOB_REGION}
     pass
-elif jenkins_params.JENKINS_JOB == 'Metrics_Remote_Job':
+elif 'Metrics_Job_Remote' in jenkins_params.JENKINS_JOB:
     print(' >> parameters for metrics job')
     parameters = {'INSTANCE_ID':jenkins_params.ID_INSTANCE, 'BUILD_NUM': jenkins_params.BUILD_NUMBER}
     pass

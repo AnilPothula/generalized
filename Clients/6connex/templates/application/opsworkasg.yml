@@ -366,7 +366,7 @@ Resources:
             echo JENKINS_USER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/username" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
             echo JENKINS_PASS=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/password" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
             echo JENKINS_IP=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/IpAddress" | jq ".Parameters" | jq ".[] .Value") >>  jenkins_params.py
-            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/${JenkinsJobName}" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Jenkins/${JenkinsJobName}" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
             echo ID_INSTANCE=\"$(curl  http://169.254.169.254/latest/meta-data/instance-id)\" >> jenkins_params.py
             echo LIFE_CYCLE_HOOK_NAME=\"${Identifier}-${ServerBaseName}-${Environment}-lf\" >> jenkins_params.py
             echo AUTO_SCALING_GROUP_NAME=\"${Identifier}-${ServerBaseName}-${Environment}-asg\" >> jenkins_params.py
