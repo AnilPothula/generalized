@@ -176,7 +176,7 @@ Resources:
 
   DwInstance:
     Type: AWS::RDS::DBInstance
-    Condition: IsProduction
+    #Condition: IsProduction
     DependsOn:
       - SubnetGroup
       - ParameterGroup
@@ -228,7 +228,7 @@ Outputs:
     Value: !GetAtt DbInstance.Endpoint.Address
 
   DwEndpoint:
-    Condition: IsProduction
+    #Condition: IsProduction
     Description: dw6c endpoint address
     Value: !GetAtt DwInstance.Endpoint.Address
 

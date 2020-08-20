@@ -1164,7 +1164,6 @@ Outputs:
 
   DwDatabaseEndpoint:
     Description: DW database endpoint
-    Condition: IsProduction
     Value: !GetAtt RdsStack.Outputs.DwEndpoint
     Export:
       Name: !Sub ${AWS::StackName}-DwDatabaseEndpoint
