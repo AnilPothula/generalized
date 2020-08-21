@@ -246,6 +246,14 @@ Resources:
         FromPort: 5672
         ToPort: 5672
         CidrIp: !Ref MgmCidr
+      - IpProtocol: tcp
+        FromPort: 15672
+        ToPort: 15672
+        CidrIp: !Ref VpcCidr
+      - IpProtocol: tcp
+        FromPort: 15672
+        ToPort: 15672
+        CidrIp: !Ref MgmCidr
       Tags: 
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-rabbitmq-sg

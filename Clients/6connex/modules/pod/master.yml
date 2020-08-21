@@ -16,6 +16,9 @@ Parameters:
     Type: String
     Default: 6connex
     Description: An arbitrary tag name for the owner of these resources
+  DefaultBuildNumber:
+    Type: String
+    Description: default build number used to deploy application on these Environment
   Environment:
     Type: String
     Default: dev
@@ -216,6 +219,7 @@ Metadata:
       - Identifier
       - S3BucketName
       - OwnerName
+      - DefaultBuildNumber
       - Environment
       - S3BuildsBucketName
       - BaseStackName
@@ -306,6 +310,8 @@ Metadata:
         default: Identifier/Client name
       S3BucketName:
         default: S3 Bucket
+      DefaultBuildNumber:
+        default: 'Build Number to Deploy on Instances (6connex-builds)'
       OwnerName:
         default: Resources Owner
       Environment:
@@ -604,6 +610,21 @@ Resources:
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
+  BuildNumberParameter:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/BuildParameter.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        BuildNumber: !Ref DefaultBuildNumber
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
   LayersStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -789,6 +810,7 @@ Resources:
 
         S3ConfigFiles: !Ref S3BucketName
         ConfigurationType: rts
+        JenkinsJobName: RtsJob
 
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -843,6 +865,7 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         MountEfs: 'Yes'
         ConfigurationType: other
+        JenkinsJobName: TomcatJob
 
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -890,6 +913,7 @@ Resources:
         S3ConfigFiles: !Ref S3BucketName
         MountEfs: 'Yes'
         ConfigurationType: other
+        JenkinsJobName: TomcatVideoJob
 
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
