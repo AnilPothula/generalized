@@ -313,6 +313,9 @@ Resources:
 
             #python3
             yum install python36 -y
+            curl -O https://bootstrap.pypa.io/get-pip.py
+            sudo python3 get-pip.py
+            /usr/local/bin/pip3 install jenkinsapi
 
             INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}${ServerBaseName}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
             /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
@@ -323,8 +326,8 @@ Resources:
 
             # grabbing the files from s3 to set everything
             echo "configuration files"
-            sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /home/configuration
-            cd /home/configuration
+            sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /tmp/configuration
+            cd /tmp/configuration
 
             # executing jenkins job
             # build parameters
@@ -339,9 +342,6 @@ Resources:
             echo JOB_REGION=\"${AWS::Region}\" >> jenkins_params.py
 
             echo "calling jenkins job"
-            curl -O https://bootstrap.pypa.io/get-pip.py
-            sudo python3 get-pip.py
-            /usr/local/bin/pip3 install jenkinsapi
             sudo python3 jenkins_tringger.py.template
             sudo rm -rf jenkins_params.py
             
