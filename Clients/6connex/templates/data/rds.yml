@@ -87,13 +87,22 @@ Resources:
       DBSubnetGroupName: !Sub ${Identifier}-${Environment}-subnetgroup
       DBSubnetGroupDescription: !Sub Subnets available for ${Identifier}-${Environment} RDS
 
-  ParameterGroup:
+  ParameterGroupDb:
     Type: AWS::RDS::DBParameterGroup
     Properties:
-      Description: Parameter Group for ${Identifier}-${Environment} - ${DbFamily}
-      Family: mysql5.6
+      Description: !Sub Parameter Group for 6connex ${Environment} DB for ${Identifier}
+      Family: mysql5.7
       Parameters:
         log_bin_trust_function_creators: 1
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-db-mysql57
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
 
   DbCredentialsSecrets:
     Type: AWS::SecretsManager::Secret
@@ -129,7 +138,7 @@ Resources:
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DbCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDb
       AllocatedStorage: !Ref AllocatedStorageDb
-      DBParameterGroupName: !Ref ParameterGroup
+      DBParameterGroupName: !Ref ParameterGroupDb
       StorageEncrypted: !Ref EncryptDb
       KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
@@ -174,6 +183,23 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  ParameterGroupDw:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: !Sub Parameter Group for 6connex ${Environment} DW for ${Identifier}
+      Family: mysql5.7
+      Parameters:
+        log_bin_trust_function_creators: 1
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-dbw-mysql57
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
   DwInstance:
     Type: AWS::RDS::DBInstance
     #Condition: IsProduction
@@ -193,7 +219,7 @@ Resources:
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DwCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDw
       AllocatedStorage: !Ref AllocatedStorageDw
-      DBParameterGroupName: !Ref ParameterGroup
+      DBParameterGroupName: !Ref ParameterGroupDw
       StorageEncrypted: !Ref EncryptDw
       KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
