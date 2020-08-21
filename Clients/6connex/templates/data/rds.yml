@@ -214,7 +214,7 @@ Resources:
     Properties: 
       Name: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
       Type: String
-      Value: !If [IsProduction, !GetAtt DwInstance.Endpoint.Address, 'No-Endpoint'] 
+      Value: !GetAtt DwInstance.Endpoint.Address
       Description: !Sub Dw endpoint on Environment ${Environment}
       Tags:
         Name: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
