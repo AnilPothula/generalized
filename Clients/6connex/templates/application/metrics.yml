@@ -126,7 +126,7 @@ Resources:
             sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
             #pip install --upgrade awscli
 
-            INSTANCE_ID=$(aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}-metrics --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            INSTANCE_ID=$(aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}-${Environment}-metrics --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
             /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
             /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
             /usr/bin/aws configure set default.region ${AWS::Region}
