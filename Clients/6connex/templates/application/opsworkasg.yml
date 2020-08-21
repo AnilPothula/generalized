@@ -305,60 +305,26 @@ Resources:
             sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
             #pip install --upgrade awscli
 
-            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}${ServerBaseName}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
-            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
-            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
-            /usr/bin/aws configure set default.region ${AWS::Region}
-
-            echo "ssm agent"
-            sudo start amazon-ssm-agent
-
             # installing jq
             sudo yum install -y jq
 
             # updating aws cli
             sudo yum update -y aws-cli
 
-            # getting db credentials
-            echo export USER_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DbCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export PASSWORD_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DbCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export DB_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/DB/DbEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
+            #python3
+            yum install python36 -y
 
-            # getting dw credentials
-            echo export USER_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DwCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export PASSWORD_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/DB/DwCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export DW_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/DB/DwEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
+            INSTANCE_ID=$(/usr/bin/aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}${ServerBaseName}$(tr -cd '0-9' < /dev/urandom |head -c3) --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
+            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+            /usr/bin/aws configure set default.region ${AWS::Region}
 
-            # settinig redis endpoint and port
-            echo export REDIS_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Redis/RedisEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-            echo export REDIS_PORT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Redis/RedisPort" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-
-            # settinig rabbit mq information
-            echo export RABBITMQ_HOST=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/RabbitMq/RabbitHost" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-            echo export RABBITMQ_PORT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/RabbitMq/RabbitPort" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-            echo export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id ${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-
-            # setting region and memcache name to grab the nodes
-            echo export REGION=${AWS::Region} >> /etc/environment
-            echo export MEMCACHE_CLUSTER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Memcache/MemcacheClusterId" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-            echo export MEMPORT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Memcache/MemcachePort" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-
-            # setting the type configuration for the nodes
-            echo export CONF_TYPE=${ConfigurationType} >> /etc/environment
-            echo export ENV=${Environment} >> /etc/environment
-
-            # setting the efs endpoint
-            echo export EFS_ENDPOINT=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Efs/EfsEndpoint" | jq ".Parameters" | jq ".[] .Value" | sed -e 's/"//g' | sed -e 's/,$//g') >> /etc/environment
-            echo export MOUNT_EFS=${MountEfs} >> /etc/environment
+            sleep 2m
 
             # grabbing the files from s3 to set everything
             echo "configuration files"
             sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /home/configuration
             cd /home/configuration
-            sudo sh configuration.sh.template
-
-            sleep 2m
 
             # executing jenkins job
             # build parameters
@@ -373,7 +339,6 @@ Resources:
             echo JOB_REGION=\"${AWS::Region}\" >> jenkins_params.py
 
             echo "calling jenkins job"
-            yum install python36 -y
             curl -O https://bootstrap.pypa.io/get-pip.py
             sudo python3 get-pip.py
             /usr/local/bin/pip3 install jenkinsapi

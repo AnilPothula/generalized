@@ -178,7 +178,7 @@ Resources:
             #echo "configuration files"
             #sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /home/configuration
             #cd /home/configuration
-            #sudo sh configuration.sh.template
+            sudo sh configuration.sh.template
 
             # executing jenkins job
             # build parameters

@@ -193,6 +193,7 @@ Resources:
       - !Ref RtsSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops::rts
         - ops-icinga2::client
         # Configure:
@@ -332,6 +333,7 @@ Resources:
       - !Ref TomcatSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops::tomcat
         - ops-icinga2::client
         - ops::efs
@@ -459,6 +461,7 @@ Resources:
       - !Ref TomcatVideoSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops-icinga2::client
       Shortname: !Sub ${Identifier}-${Environment}-tomcatvideo
       CustomJson:
@@ -570,6 +573,7 @@ Resources:
       - !Ref RabbitSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops::metrics
         - ops-icinga2::client
       Shortname: !Sub ${Identifier}-${Environment}-metrics
