@@ -124,12 +124,12 @@ Resources:
     Type: AWS::RDS::DBInstance
     DependsOn:
       - SubnetGroup
-      - ParameterGroup
+      - ParameterGroupDb
       - DbCredentialsSecrets
     Properties:
       DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-bd6co
       Engine: mysql
-      EngineVersion: 5.6.44
+      EngineVersion: 5.7.30
       MultiAZ: !Ref MultiAz
       StorageType: io1
       Iops: 1000
@@ -205,12 +205,12 @@ Resources:
     #Condition: IsProduction
     DependsOn:
       - SubnetGroup
-      - ParameterGroup
+      - ParameterGroupDw
       - DwCredentialsSecrets
     Properties:
       DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6co
       Engine: mysql
-      EngineVersion: 5.6.44
+      EngineVersion: 5.7.30
       MultiAZ: !Ref MultiAz
       StorageType: io1
       Iops: 1000
