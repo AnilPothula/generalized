@@ -575,7 +575,7 @@ Resources:
         Setup:
         - ops::environment_conf
         - ops::metrics
-        - ops-icinga2::client
+      #   - ops-icinga2::client
       Shortname: !Sub ${Identifier}-${Environment}-metrics
       CustomJson:
         !Sub |

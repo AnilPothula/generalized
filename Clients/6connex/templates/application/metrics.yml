@@ -11,6 +11,10 @@ Parameters:
     Default: 6connex
     Description: A name identifier for the resources
 
+  PrivateIp:
+    Type: String
+    Description: private ip to use
+
   BuildsBucket:
     Type: String
     Description: builds bucket
@@ -120,6 +124,7 @@ Resources:
       InstanceType: !Ref InstanceType
       SecurityGroupIds: !Ref SecurityGroupsIds
       SubnetId: !Select [ 1, !Ref SubnetsIds ]
+      PrivateIpAddress: !Ref PrivateIp
       UserData:
         Fn::Base64: !Sub |
             #!/bin/bash
@@ -165,7 +170,6 @@ Resources:
             echo "calling jenkins job"
             sudo python3 jenkins_tringger.py.template
             sudo rm -rf jenkins_params.py
-
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-metricsnode

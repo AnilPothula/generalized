@@ -840,6 +840,7 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
       Parameters:
         Identifier: !Ref Identifier
+        PrivateIp: '10.40.14.114'
         BuildsBucket: !Ref S3BuildsBucketName
         ImageId: !Ref MetricsImageId
         StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
