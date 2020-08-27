@@ -155,6 +155,11 @@ Resources:
               Action:
               - 'ec2:*'
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-rts-role
@@ -188,6 +193,7 @@ Resources:
       - !Ref RtsSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops::rts
         - ops-icinga2::client
         # Configure:
@@ -195,6 +201,35 @@ Resources:
         # Shutdown:
         # - ops::dns-delete
       Shortname: !Sub ${Identifier}-${Environment}-rt
+      CustomJson:
+        !Sub |
+          {
+            "identifier":"${Identifier}",
+            "environment":"${Environment}",
+            "region":"${AWS::Region}",
+
+            "db_secret_id":"${Environment}/${Identifier}/DB/DbCredentials",
+            "db_endpoint_param":"/${Environment}/${Identifier}/DB/DbEndpoint",
+
+            "dw_secret_id":"${Environment}/${Identifier}/DB/DwCredentials",
+            "dw_endpoint_param":"/${Environment}/${Identifier}/DB/DwEndpoint",
+            
+            "redis_endpoint_param": "/${Environment}/${Identifier}/Redis/RedisEndpoint",
+            "redis_port_param": "/${Environment}/${Identifier}/Redis/RedisPort",
+
+            "rabbitmq_host": "/${Environment}/${Identifier}/RabbitMq/RabbitHost",
+            "rabbitmq_port": "/${Environment}/${Identifier}/RabbitMq/RabbitPort",
+            "rabbitmq_secret_id": "${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials",
+            "set_up_rabbitmq": "No",
+
+            "memcache_cluster_id": "/${Environment}/${Identifier}/Memcache/MemcacheClusterId",
+            "memcache_cluster_port": "/${Environment}/${Identifier}/Memcache/MemcachePort",
+
+            "efs_endpoint": "/${Environment}/${Identifier}/Efs/EfsEndpoint",
+            "mount_efs": "No",
+
+            "conf_type": "rts"
+          }
       Tags:
       - Key: NameLayer
         Value: !Sub ${Identifier}-${Environment}-rts-layer
@@ -260,6 +295,11 @@ Resources:
               Action:
               - 'ec2:*'
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcat-role
@@ -293,10 +333,40 @@ Resources:
       - !Ref TomcatSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops::tomcat
         - ops-icinga2::client
         - ops::efs
       Shortname: !Sub ${Identifier}-${Environment}-tomcat
+      CustomJson:
+        !Sub |
+          {
+            "identifier":"${Identifier}",
+            "environment":"${Environment}",
+            "region":"${AWS::Region}",
+
+            "db_secret_id":"${Environment}/${Identifier}/DB/DbCredentials",
+            "db_endpoint_param":"/${Environment}/${Identifier}/DB/DbEndpoint",
+
+            "dw_secret_id":"${Environment}/${Identifier}/DB/DwCredentials",
+            "dw_endpoint_param":"/${Environment}/${Identifier}/DB/DwEndpoint",
+            
+            "redis_endpoint_param": "/${Environment}/${Identifier}/Redis/RedisEndpoint",
+            "redis_port_param": "/${Environment}/${Identifier}/Redis/RedisPort",
+
+            "rabbitmq_host": "/${Environment}/${Identifier}/RabbitMq/RabbitHost",
+            "rabbitmq_port": "/${Environment}/${Identifier}/RabbitMq/RabbitPort",
+            "rabbitmq_secret_id": "${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials",
+            "set_up_rabbitmq": "No",
+
+            "memcache_cluster_id": "/${Environment}/${Identifier}/Memcache/MemcacheClusterId",
+            "memcache_cluster_port": "/${Environment}/${Identifier}/Memcache/MemcachePort",
+
+            "efs_endpoint": "/${Environment}/${Identifier}/Efs/EfsEndpoint",
+            "mount_efs": "Yes",
+
+            "conf_type": "other"
+          }
       Tags:
       - Key: NameLayer
         Value: !Sub ${Identifier}-${Environment}-tomcat-layer
@@ -353,6 +423,11 @@ Resources:
               Action:
               - 'ec2:*'
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-tomcatvideo-role
@@ -386,8 +461,38 @@ Resources:
       - !Ref TomcatVideoSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops-icinga2::client
       Shortname: !Sub ${Identifier}-${Environment}-tomcatvideo
+      CustomJson:
+        !Sub |
+          {
+            "identifier":"${Identifier}",
+            "environment":"${Environment}",
+            "region":"${AWS::Region}",
+
+            "db_secret_id":"${Environment}/${Identifier}/DB/DbCredentials",
+            "db_endpoint_param":"/${Environment}/${Identifier}/DB/DbEndpoint",
+
+            "dw_secret_id":"${Environment}/${Identifier}/DB/DwCredentials",
+            "dw_endpoint_param":"/${Environment}/${Identifier}/DB/DwEndpoint",
+            
+            "redis_endpoint_param": "/${Environment}/${Identifier}/Redis/RedisEndpoint",
+            "redis_port_param": "/${Environment}/${Identifier}/Redis/RedisPort",
+
+            "rabbitmq_host": "/${Environment}/${Identifier}/RabbitMq/RabbitHost",
+            "rabbitmq_port": "/${Environment}/${Identifier}/RabbitMq/RabbitPort",
+            "rabbitmq_secret_id": "${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials",
+            "set_up_rabbitmq": "No",
+
+            "memcache_cluster_id": "/${Environment}/${Identifier}/Memcache/MemcacheClusterId",
+            "memcache_cluster_port": "/${Environment}/${Identifier}/Memcache/MemcachePort",
+
+            "efs_endpoint": "/${Environment}/${Identifier}/Efs/EfsEndpoint",
+            "mount_efs": "Yes",
+
+            "conf_type": "other"
+          }
       Tags:
       - Key: NameLayer
         Value: !Sub ${Identifier}-${Environment}-tomcatvideo-layer
@@ -437,6 +542,11 @@ Resources:
               Action:
               - opsworks:*
               Resource: '*'
+            - Effect: Allow
+              Action:
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetParameters'
+              Resource: '*'
 
 
   MetricsInstanceProfile:
@@ -463,9 +573,39 @@ Resources:
       - !Ref RabbitSecurityGroup
       CustomRecipes:
         Setup:
+        - ops::environment_conf
         - ops::metrics
-        - ops-icinga2::client
+      #   - ops-icinga2::client
       Shortname: !Sub ${Identifier}-${Environment}-metrics
+      CustomJson:
+        !Sub |
+          {
+            "identifier":"${Identifier}",
+            "environment":"${Environment}",
+            "region":"${AWS::Region}",
+
+            "db_secret_id":"${Environment}/${Identifier}/DB/DbCredentials",
+            "db_endpoint_param":"/${Environment}/${Identifier}/DB/DbEndpoint",
+
+            "dw_secret_id":"${Environment}/${Identifier}/DB/DwCredentials",
+            "dw_endpoint_param":"/${Environment}/${Identifier}/DB/DwEndpoint",
+            
+            "redis_endpoint_param": "/${Environment}/${Identifier}/Redis/RedisEndpoint",
+            "redis_port_param": "/${Environment}/${Identifier}/Redis/RedisPort",
+
+            "rabbitmq_host": "/${Environment}/${Identifier}/RabbitMq/RabbitHost",
+            "rabbitmq_port": "/${Environment}/${Identifier}/RabbitMq/RabbitPort",
+            "rabbitmq_secret_id": "${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials",
+            "set_up_rabbitmq": "Yes",
+
+            "memcache_cluster_id": "/${Environment}/${Identifier}/Memcache/MemcacheClusterId",
+            "memcache_cluster_port": "/${Environment}/${Identifier}/Memcache/MemcachePort",
+
+            "efs_endpoint": "/${Environment}/${Identifier}/Efs/EfsEndpoint",
+            "mount_efs": "No",
+
+            "conf_type": "other"
+          }
       Tags:
       - Key: NameLayer
         Value: !Sub ${Identifier}-${Environment}-metrics-layer

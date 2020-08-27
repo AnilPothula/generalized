@@ -12,14 +12,13 @@ Parameters:
   S3BucketName:
     Type: String
     Description: bucket where CloudFormation templates are stored
-  OwnerName:
-    Type: String
-    Default: 6connex
-    Description: An arbitrary tag name for the owner of these resources
   Environment:
     Type: String
     Default: dev
     Description: Environment name to append to resources names and tags
+  DefaultBuildNumber:
+    Type: String
+    Description: default build number used to deploy application on these Environment
   ##################### MANAGEMENT ################
   VpcCidr:
     Type: String
@@ -249,7 +248,7 @@ Metadata:
       Parameters:
       - Identifier
       - S3BucketName
-      - OwnerName
+      - DefaultBuildNumber
       - Environment
       - S3BuildsBucketName
     - Label:
@@ -351,8 +350,8 @@ Metadata:
         default: 'Name to append to the resources'
       S3BucketName:
         default: 'S3 Bucket Name'
-      OwnerName:
-        default: 'Owner of the resources'
+      DefaultBuildNumber:
+        default: 'Build Number to Deploy on Instances (6connex-builds)'
       Environment:
         default: 'Environment of the infrastructure deployment (default: dev)'
       VpcCidr:
@@ -568,7 +567,7 @@ Resources:
         RequesterVpcId: !FindInMap [ VpcPeeringConfiguration, management, MgmVpcId ]
         RequesterVpcCidrBlock: !FindInMap [VpcPeeringConfiguration, management, MgmCidr]
         MgmtRegion: !FindInMap [VpcPeeringConfiguration, management, MgmtRegion]
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -581,7 +580,7 @@ Resources:
         VpcId: !GetAtt Network.Outputs.VpcId
         VpcCidr: !Ref VpcCidr
         MgmCidr: !FindInMap [VpcPeeringConfiguration, management, MgmCidr]
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -593,7 +592,7 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/efs.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-efs
+        Identifier: !Sub ${Identifier}
         Encrypted: !FindInMap [DataStoreConfiguration, EfsConfig, Encrypted]
         ## KMS
         KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
@@ -613,7 +612,7 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/elasticache.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-memcache
+        Identifier: !Sub ${Identifier}
         VpcId: !GetAtt Network.Outputs.VpcId
         SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
         ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.MemcaheSg
@@ -634,7 +633,7 @@ Resources:
             - 0
             - Fn::GetAZs: !Ref 'AWS::Region'
         PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -646,7 +645,7 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/redis.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-redis
+        Identifier: !Sub ${Identifier}
         VpcId: !GetAtt Network.Outputs.VpcId
         SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
         ElastichCacheSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
@@ -676,7 +675,7 @@ Resources:
                 - 1
                 - Fn::GetAZs: !Ref 'AWS::Region'
         PreferredMaintenanceWindow: !Ref 'AWS::NoValue'
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -688,7 +687,7 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/data/rds.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-rds
+        Identifier: !Sub ${Identifier}
         VpcId: !GetAtt Network.Outputs.VpcId
         SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.DataSubnetIds] ]
         RdsSecurityGroup: !GetAtt SecurityGroups.Outputs.RdsSg
@@ -705,7 +704,7 @@ Resources:
         MultiAz: !Ref RdsMultiAz
         #KMS
         KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -721,7 +720,7 @@ Resources:
               Id: !Ref Identifier
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
 
   S3BriefCase:
     Type: AWS::CloudFormation::Stack
@@ -735,7 +734,7 @@ Resources:
               Id: !Ref Identifier
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
 
   S3BatchReport:
     Type: AWS::CloudFormation::Stack
@@ -749,7 +748,7 @@ Resources:
               Id: !Ref Identifier
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
 
   OpsworksStack:
     Type: AWS::CloudFormation::Stack
@@ -776,7 +775,18 @@ Resources:
         OpsworksSshSecretId: !Ref OpsworksSshSecretId
         GitBranch: !Ref GitBranch
         VpcId: !GetAtt Network.Outputs.VpcId
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  BuildNumberParameter:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/BuildParameter.yml"
+      Parameters:
+        Identifier: !Ref Identifier
+        BuildNumber: !Ref DefaultBuildNumber
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -802,7 +812,7 @@ Resources:
         RabbitSecurityGroup: !GetAtt SecurityGroups.Outputs.RabbitSg
         RedisSecurityGroup: !GetAtt SecurityGroups.Outputs.RedisSg
         TomcatVideoSecurityGroup: !GetAtt SecurityGroups.Outputs.TomcatVideoSg
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -813,12 +823,12 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/alb.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-alb
+        Identifier: !Sub ${Identifier}
         VpcId: !GetAtt Network.Outputs.VpcId
         AlbSecurityGroup: !GetAtt SecurityGroups.Outputs.AlbSg
         SubnetIds: !Join [',', !Split [',', !GetAtt Network.Outputs.PublicSubnetIds] ]
         AlbCertificateArn: !Ref AlbCertificateArn
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -830,7 +840,8 @@ Resources:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/metrics.yml"
       Parameters:
         Identifier: !Ref Identifier
-        IdentifierRds: !Sub ${Identifier}-rds
+        PrivateIp: '10.40.14.114'
+        BuildsBucket: !Ref S3BuildsBucketName
         ImageId: !Ref MetricsImageId
         StackId: !GetAtt OpsworksStack.Outputs.OpsworksStackId
         LayerId: !GetAtt LayersStack.Outputs.MetricsLayerId
@@ -840,22 +851,11 @@ Resources:
         KeyName: !Ref DefaultSshKeyName
         SubnetsIds: !Join [',', !Split [',', !GetAtt Network.Outputs.ApplicationSubnetIds] ]
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         RabbitMqUser: !Ref RabbitMqUsername
         RabbitMqPassword: !Ref RabbitMqPassword
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         ConfigurationType: other
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -877,7 +877,7 @@ Resources:
         MetricsPriority: 3
         TomcatDomain: !Ref TomcatDomain
         TomcatPriority: 2
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -892,9 +892,8 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-rts
-        IdentifierRds: !Sub ${Identifier}-rds
-        IdentifierMetrics: !Ref Identifier
+        Identifier: !Sub ${Identifier}
+        ServerBaseName: rts
         S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.RtsInstanceProfileArn
@@ -918,22 +917,10 @@ Resources:
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
 
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         ConfigurationType: rts
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        JenkinsJobName: RtsJob
 
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -948,9 +935,8 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-tomcat
-        IdentifierRds: !Sub ${Identifier}-rds
-        IdentifierMetrics: !Ref Identifier
+        Identifier: !Sub ${Identifier}
+        ServerBaseName: tomcat
         S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.TomcatInstanceProfileArn
@@ -974,23 +960,11 @@ Resources:
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
 
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        MountEfs: 'Yes'
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         ConfigurationType: other
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        MountEfs: 'Yes'
+        JenkinsJobName: TomcatJob
 
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -1005,9 +979,8 @@ Resources:
     Properties:
       TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/application/opsworkasg.yml"
       Parameters:
-        Identifier: !Sub ${Identifier}-tomcatvideo
-        IdentifierRds: !Sub ${Identifier}-rds
-        IdentifierMetrics: !Ref Identifier
+        Identifier: !Sub ${Identifier}
+        ServerBaseName: tomcatvideo
         S3ConfigFiles: !Ref S3BucketName
         VpcId: !GetAtt Network.Outputs.VpcId
         InstanceProfile: !GetAtt LayersStack.Outputs.TomcatVideoInstanceProfileArn
@@ -1025,21 +998,9 @@ Resources:
         TargetGroupArn: !Ref 'AWS::NoValue'
 
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
         MountEfs: 'Yes'
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         ConfigurationType: other
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        JenkinsJobName: TomcatVideoJob
 
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]
@@ -1052,7 +1013,7 @@ Resources:
         LowCpuTreshold: !Ref TomcatVideoLowCpuTreshold
         HighPeriod: !FindInMap [AutoScalingConfig, TomcatVideo, HighPeriod]
         HighCpuTreshold: !Ref TomcatVideoHighCpuTreshold
-        OwnerName: !Ref OwnerName
+        OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
 
@@ -1204,7 +1165,6 @@ Outputs:
 
   DwDatabaseEndpoint:
     Description: DW database endpoint
-    Condition: IsProduction
     Value: !GetAtt RdsStack.Outputs.DwEndpoint
     Export:
       Name: !Sub ${AWS::StackName}-DwDatabaseEndpoint

@@ -59,13 +59,13 @@ Resources:
   DefaultTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${Identifier}-${Environment}-default-tg
+      Name: !Sub ${Identifier}-${Environment}-default-targetgroup
       Port: 80
       VpcId: !Ref VpcId
       Protocol: HTTP
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-defaukt-tg
+        Value: !Sub ${Identifier}-${Environment}-default-targetgroup
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName

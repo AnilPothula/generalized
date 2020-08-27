@@ -105,6 +105,46 @@ Resources:
         Value: !Ref ProjectName
       - Key: Environment
         Value: !Ref Environment
+
+  MemcacheEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+      Type: String
+      Value: !GetAtt CacheCluster.ConfigurationEndpoint.Address
+      Description: !Sub Memcache endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  MemcacheClusterIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Memcache/MemcacheClusterId
+      Type: String
+      Value: !Ref CacheCluster
+      Description: !Sub Memcache clustere id on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  MemcachePortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Memcache/MemcachePort
+      Type: String
+      Value: !Ref ElasticachePort
+      Description: !Sub Memcache port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Memcache/MemcachePort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
 Outputs:
   Cluster:
     Description: The elasticache cluster id
@@ -113,3 +153,15 @@ Outputs:
   ClusterEndPoint:
     Description: cluster endpoint
     Value: !GetAtt CacheCluster.ConfigurationEndpoint.Address
+
+  MemcacheEndpointName:
+    Description: memecache endpoint name
+    Value: !Sub /${Environment}/${Identifier}/Memcache/MemcacheEndpoint
+
+  MemcachePortName:
+    Description: memecache port name
+    Value: !Sub /${Environment}/${Identifier}/Memcache/MemcachePort
+  
+  MemcacheClusterIdName:
+    Description: memecache port name
+    Value: !Sub /${Environment}/${Identifier}/Memcache/MemcacheClusterId

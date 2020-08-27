@@ -16,6 +16,9 @@ Parameters:
     Type: String
     Default: 6connex
     Description: An arbitrary tag name for the owner of these resources
+  DefaultBuildNumber:
+    Type: String
+    Description: default build number used to deploy application on these Environment
   Environment:
     Type: String
     Default: dev
@@ -216,6 +219,7 @@ Metadata:
       - Identifier
       - S3BucketName
       - OwnerName
+      - DefaultBuildNumber
       - Environment
       - S3BuildsBucketName
       - BaseStackName
@@ -306,6 +310,8 @@ Metadata:
         default: Identifier/Client name
       S3BucketName:
         default: S3 Bucket
+      DefaultBuildNumber:
+        default: 'Build Number to Deploy on Instances (6connex-builds)'
       OwnerName:
         default: Resources Owner
       Environment:
@@ -461,7 +467,7 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-            - ${Id}-${RegionalName}-efs
+            - ${Id}-${RegionalName}
             - Id: !Ref Identifier
               RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
         Encrypted: !FindInMap [DataStoreConfiguration, EfsConfig, Encrypted]
@@ -486,7 +492,7 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-            - ${Id}-${RegionalName}-memcache
+            - ${Id}-${RegionalName}
             - Id: !Ref Identifier
               RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
         VpcId:
@@ -526,7 +532,7 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-            - ${Id}-${RegionalName}-redis
+            - ${Id}-${RegionalName}
             - Id: !Ref Identifier
               RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
         VpcId:
@@ -575,7 +581,7 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-           - ${Id}-${RegionalName}-rds
+           - ${Id}-${RegionalName}
            - Id: !Ref Identifier
              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
         VpcId:
@@ -600,6 +606,21 @@ Resources:
         MultiAz: !Ref RdsMultiAz
         #KMS
         KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref AWS::StackName
+        Environment: !Ref Environment
+
+  BuildNumberParameter:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${S3BucketName}.s3.${AWS::Region}.amazonaws.com/${Environment}/templates/others/BuildParameter.yml"
+      Parameters:
+        Identifier:
+          !Sub
+           - ${Id}-${RegionalName}
+           - Id: !Ref Identifier
+             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        BuildNumber: !Ref DefaultBuildNumber
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
@@ -681,11 +702,6 @@ Resources:
            - ${Id}-${RegionalName}
            - Id: !Ref Identifier
              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierRds:
-          !Sub
-           - ${Id}-${RegionalName}-rds
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
         ImageId: !Ref MetricsImageId
         StackId:
           Fn::ImportValue:
@@ -704,20 +720,9 @@ Resources:
           Fn::ImportValue:
             !Sub ${BaseStackName}-NetworkApplicationIds
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
         RabbitMqUser: !Ref RabbitMqUsername
         RabbitMqPassword: !Ref RabbitMqPassword
         RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
         ConfigurationType: other
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -765,19 +770,10 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-           - ${Id}-${RegionalName}-rts
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierMetrics:
-          !Sub
            - ${Id}-${RegionalName}
            - Id: !Ref Identifier
              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierRds:
-          !Sub
-           - ${Id}-${RegionalName}-rds
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        ServerBaseName: rts
         S3ConfigFiles: !Ref S3BucketName
         VpcId:
           Fn::ImportValue:
@@ -813,20 +809,8 @@ Resources:
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.RtsFullName
 
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         ConfigurationType: rts
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        JenkinsJobName: RtsJob
 
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -841,20 +825,10 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-           - ${Id}-${RegionalName}-tomcat
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierMetrics:
-          !Sub
            - ${Id}-${RegionalName}
            - Id: !Ref Identifier
              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierRds:
-          !Sub
-           - ${Id}-${RegionalName}-rds
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        S3ConfigFiles: !Ref S3BucketName
+        ServerBaseName: tomcat
         VpcId:
           Fn::ImportValue:
             !Sub ${BaseStackName}-NetworkVpcId
@@ -889,21 +863,9 @@ Resources:
         TargetGroupFullName: !GetAtt TargetGroupsStack.Outputs.TomcatFullName
 
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
         MountEfs: 'Yes'
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         ConfigurationType: other
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        JenkinsJobName: TomcatJob
 
         OwnerName: !Ref OwnerName
         ProjectName: !Ref AWS::StackName
@@ -918,19 +880,10 @@ Resources:
       Parameters:
         Identifier:
           !Sub
-           - ${Id}-${RegionalName}-tomcatvideo
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierMetrics:
-          !Sub
            - ${Id}-${RegionalName}
            - Id: !Ref Identifier
              RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
-        IdentifierRds:
-          !Sub
-           - ${Id}-${RegionalName}-rds
-           - Id: !Ref Identifier
-             RegionalName: !FindInMap [ RegionalIdentifiers, !Ref 'AWS::Region', name]
+        ServerBaseName: tomcatvideo
         S3ConfigFiles: !Ref S3BucketName
         VpcId:
           Fn::ImportValue:
@@ -958,21 +911,9 @@ Resources:
         TargetGroupArn: !Ref 'AWS::NoValue'
 
         S3ConfigFiles: !Ref S3BucketName
-        DbEndpoint: !GetAtt RdsStack.Outputs.DbEndpoint
-        DwEndpoint: !If [IsProduction, !GetAtt RdsStack.Outputs.DwEndpoint, 'NoValue']
         MountEfs: 'Yes'
-        EfsEndpoint:
-          !Sub
-          - ${EfsId}.efs.${Region}.amazonaws.com
-          - EfsId: !GetAtt EfsStack.Outputs.FileSystemId
-            Region: !Ref 'AWS::Region'
-        RedisEndpoint: !GetAtt RedisReplicationCluster.Outputs.RedisEndpoint
-        RedisPort: !FindInMap [DataStoreConfiguration, RedisConfig, RedisPort]
-        MemcacheClusterId: !GetAtt MemCacheClusterStack.Outputs.Cluster
         ConfigurationType: other
-        RabbitMqHost: !GetAtt MetricsNodeStack.Outputs.MetricsNodeIp
-        RabbitMqPort: !FindInMap [MetricsNodeConfiguration, MetricsDefaults, Port]
-        MemcachePort: !FindInMap [DataStoreConfiguration, MemcacheConfig, MemcachePort]
+        JenkinsJobName: TomcatVideoJob
 
         DesiredCapacity: !Ref TomcatVideoDesiredCapacity
         ScalingUpAdjustment: !FindInMap [AutoScalingConfig, TomcatVideo, ScaleUpAdjustment]

@@ -87,19 +87,28 @@ Resources:
       DBSubnetGroupName: !Sub ${Identifier}-${Environment}-subnetgroup
       DBSubnetGroupDescription: !Sub Subnets available for ${Identifier}-${Environment} RDS
 
-  ParameterGroup:
+  ParameterGroupDb:
     Type: AWS::RDS::DBParameterGroup
     Properties:
-      Description: Parameter Group for ${Identifier}-${Environment} - ${DbFamily}
-      Family: mysql5.6
+      Description: !Sub Parameter Group for 6connex ${Environment} DB for ${Identifier}
+      Family: mysql5.7
       Parameters:
         log_bin_trust_function_creators: 1
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-db-mysql57
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
 
   DbCredentialsSecrets:
     Type: AWS::SecretsManager::Secret
     Properties: 
       Description: !Sub Db credentials secret in env ${Environment}
-      Name: !Sub database/${Identifier}/${Environment}/DbCredentials
+      Name: !Sub ${Environment}/${Identifier}/DB/DbCredentials
       SecretString: !Sub '{"username":"${UserDb}","password":"${PasswordDb}"}'
       Tags:
       - Key: Name
@@ -115,12 +124,12 @@ Resources:
     Type: AWS::RDS::DBInstance
     DependsOn:
       - SubnetGroup
-      - ParameterGroup
+      - ParameterGroupDb
       - DbCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6codb
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-bd6co
       Engine: mysql
-      EngineVersion: 5.6.44
+      EngineVersion: 5.7.30
       MultiAZ: !Ref MultiAz
       StorageType: io1
       Iops: 1000
@@ -129,7 +138,7 @@ Resources:
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DbCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDb
       AllocatedStorage: !Ref AllocatedStorageDb
-      DBParameterGroupName: !Ref ParameterGroup
+      DBParameterGroupName: !Ref ParameterGroupDb
       StorageEncrypted: !Ref EncryptDb
       KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
@@ -137,7 +146,7 @@ Resources:
       DBSubnetGroupName: !Ref SubnetGroup
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-6cdb
+        Value: !Sub ${Identifier}-${Environment}-bd6co
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -145,11 +154,24 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  DbEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/DB/DbEndpoint
+      Type: String
+      Value: !GetAtt DbInstance.Endpoint.Address
+      Description: !Sub Db endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/DB/DbEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
   DwCredentialsSecrets:
     Type: AWS::SecretsManager::Secret
     Properties: 
       Description: !Sub Dw credentials secret in env ${Environment}
-      Name: !Sub database/${Identifier}/${Environment}/DwCredentials
+      Name: !Sub ${Environment}/${Identifier}/DB/DwCredentials
       SecretString: !Sub '{"username":"${UserDw}","password":"${PasswordDw}"}'
       Tags:
       - Key: Name
@@ -161,17 +183,34 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  ParameterGroupDw:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: !Sub Parameter Group for 6connex ${Environment} DW for ${Identifier}
+      Family: mysql5.7
+      Parameters:
+        log_bin_trust_function_creators: 1
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-dbw-mysql57
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
   DwInstance:
     Type: AWS::RDS::DBInstance
-    Condition: IsProduction
+    #Condition: IsProduction
     DependsOn:
       - SubnetGroup
-      - ParameterGroup
+      - ParameterGroupDw
       - DwCredentialsSecrets
     Properties:
-      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-6codw
+      DBInstanceIdentifier: !Sub ${Identifier}-${Environment}-dw6co
       Engine: mysql
-      EngineVersion: 5.6.44
+      EngineVersion: 5.7.30
       MultiAZ: !Ref MultiAz
       StorageType: io1
       Iops: 1000
@@ -180,7 +219,7 @@ Resources:
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DwCredentialsSecrets}:SecretString:password}}'
       DBInstanceClass: !Ref ClassDw
       AllocatedStorage: !Ref AllocatedStorageDw
-      DBParameterGroupName: !Ref ParameterGroup
+      DBParameterGroupName: !Ref ParameterGroupDw
       StorageEncrypted: !Ref EncryptDw
       KmsKeyId: !If [ NoKmsKey, !Ref 'AWS::NoValue', !Ref KmsKeyId ]
       VPCSecurityGroups:
@@ -188,19 +227,41 @@ Resources:
       DBSubnetGroupName: !Ref SubnetGroup
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-6cdw
+        Value: !Sub ${Identifier}-${Environment}-dw6co
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
         Value: !Ref ProjectName
       - Key: Environment
         Value: !Ref Environment
+
+  DwEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
+      Type: String
+      Value: !GetAtt DwInstance.Endpoint.Address
+      Description: !Sub Dw endpoint on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/DB/DwEndpoint
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+        
 Outputs:
   DbEndpoint:
     Description: db6c endpoint address
     Value: !GetAtt DbInstance.Endpoint.Address
 
   DwEndpoint:
-    Condition: IsProduction
+    #Condition: IsProduction
     Description: dw6c endpoint address
     Value: !GetAtt DwInstance.Endpoint.Address
+
+  DbEndpointName:
+    Description: db endpoint parameter name
+    Value: !Sub /${Environment}/${Identifier}/DB/DbEndpoint
+
+  DwEndpointName:
+    Description: dw endpoint parameter name
+    Value: !Sub /${Environment}/${Identifier}/DB/DwEndpoint

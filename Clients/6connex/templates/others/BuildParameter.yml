@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Template to create custom resource from lambda
+Parameters:
+  Identifier:
+    Type: String
+    Description: A name identifier for S3 Bucket to be created
+  BuildNumber:
+    Type: String
+    Description: BuildNumber to deploy application
+  OwnerName:
+    Type: String
+    Default: nclouds
+    Description: An arbitrary tag name for the owner of these resources
+  ProjectName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+Resources:
+
+  BuildNumberParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Builds/BuildNumber
+      Type: String
+      Value: !Ref BuildNumber
+      Description: !Sub build number to deploy on instances on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Builds/BuildNumber
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  JenkinsMetricsJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/MetricsJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_Metrics_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/MetricsJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+  
+  JenkinsTomcatJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_Tomcat_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  JenkinsTomcatVideoJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatVideoJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_Tomcat_Video_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/TomcatVideoJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+  JenkinsRtsJobName:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/Jenkins/RtsJob
+      Type: String
+      Value: !Sub ${Identifier}_${Environment}_RTS_Job_Remote
+      Description: !Sub remote job to deploy on ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/Jenkins/RtsJob
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+
+
+Outputs:
+
+  BuildNumberName:
+    Description: db endpoint parameter name
+    Value: !Sub /${Environment}/${Identifier}/Builds/BuildNumber
+

@@ -11,9 +11,13 @@ Parameters:
     Default: 6connex
     Description: A name identifier for the resources
 
-  IdentifierRds:
+  PrivateIp:
     Type: String
-    Description: rds identifier placed on the template
+    Description: private ip to use
+
+  BuildsBucket:
+    Type: String
+    Description: builds bucket
 
   ImageId:
     Type: String
@@ -53,31 +57,6 @@ Parameters:
     Type: String
     Description: S3 Bucket to download configuration files
 
-  DbEndpoint:
-    Type: String
-    Default: ''
-    Description: db endpoint value
-
-  DwEndpoint:
-    Type: String
-    Default: ''
-    Description: dw endpoint value
-
-  EfsEndpoint:
-    Type: String
-    Default: ''
-    Description: efs endpoint value
-
-  RedisEndpoint:
-    Type: String
-    Default: ''
-    Description: redis endpoint
-
-  RedisPort:
-    Type: Number
-    Default: 0
-    Description: redis port
-
   RabbitMqUser:
     Type: String
     Description: rabbit mq user
@@ -91,16 +70,6 @@ Parameters:
     Type: Number
     Default: 0
     Description: rabbit mq port to use
-
-  MemcacheClusterId:
-    Type: String
-    Default: ''
-    Description: memcache cluster id
-
-  MemcachePort:
-    Type: Number
-    Default: 0
-    Description: memcache port number
 
   ConfigurationType:
     Type: String
@@ -132,7 +101,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Description: !Sub rabbit mq credentials in env ${Environment}
-      Name: !Sub metrics/${Identifier}/${Environment}/RabbitmqCredentials
+      Name: !Sub ${Environment}/${Identifier}/RabbitMq/RabbitmqCredentials
       SecretString: !Sub '{"username":"${RabbitMqUser}","password":"${RabbitMqPassword}"}'
       Tags:
       - Key: Name
@@ -155,16 +124,12 @@ Resources:
       InstanceType: !Ref InstanceType
       SecurityGroupIds: !Ref SecurityGroupsIds
       SubnetId: !Select [ 1, !Ref SubnetsIds ]
+      PrivateIpAddress: !Ref PrivateIp
       UserData:
         Fn::Base64: !Sub |
             #!/bin/bash
             sed -i'' -e 's/.*requiretty.*//' /etc/sudoers
             #pip install --upgrade awscli
-
-            INSTANCE_ID=$(aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}-metrics --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
-            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
-            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
-            /usr/bin/aws configure set default.region ${AWS::Region}
 
             echo "ssm agent"
             sudo start amazon-ssm-agent
@@ -175,46 +140,36 @@ Resources:
             # updating aws cli
             sudo yum update -y aws-cli
 
-            # getting db credentials
-            echo export USER_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export PASSWORD_DB=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DbCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export DB_ENDPOINT=${DbEndpoint} >> /etc/environment
+            # python3
+            yum install python36 -y
+            curl -O https://bootstrap.pypa.io/get-pip.py
+            sudo python3 get-pip.py
+            /usr/local/bin/pip3 install jenkinsapi
 
-            # getting dw credentials
-            echo export USER_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export PASSWORD_DW=$(/usr/bin/aws secretsmanager get-secret-value --secret-id database/${IdentifierRds}/${Environment}/DwCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export DW_ENDPOINT=${DwEndpoint} >> /etc/environment
+            INSTANCE_ID=$(aws opsworks register --use-instance-profile --infrastructure-class ec2 --region us-east-1 --stack-id ${StackId} --override-hostname ${Identifier}-${Environment}-metrics --local 2>&1 |grep -o 'Instance ID: .*' |cut -d' ' -f3)
+            /usr/bin/aws opsworks wait instance-registered --region us-east-1 --instance-id $INSTANCE_ID
+            /usr/bin/aws opsworks assign-instance --region us-east-1 --instance-id $INSTANCE_ID --layer-ids ${LayerId}
+            /usr/bin/aws configure set default.region ${AWS::Region}
 
-            # settinig redis endpoint and port
-            echo export REDIS_ENDPOINT=${RedisEndpoint} >> /etc/environment
-            echo export REDIS_PORT=${RedisPort} >> /etc/environment
+            sleep 2m
 
-            # settinig rabbit mq information
-            echo export RABBITMQ_HOST=127.0.0.1 >> /etc/environment
-            echo export RABBITMQ_PORT=${RabbitMqPort} >> /etc/environment
-            echo export RABBITMQ_USER=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Identifier}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .username) >> /etc/environment
-            echo export RABBITMQ_PASSWORD=$(/usr/bin/aws secretsmanager get-secret-value --secret-id metrics/${Identifier}/${Environment}/RabbitmqCredentials --query 'SecretString' --output text | jq -r .password) >> /etc/environment
-            echo export RABBIT_CONF=Yes >> /etc/environment
-            echo export NODE_ID=${Identifier}-metrics >> /etc/environment
-
-            # setting region and memcache name to grab the nodes
-            echo export REGION=${AWS::Region} >> /etc/environment
-            echo export MEMCACHE_CLUSTER=${MemcacheClusterId} >> /etc/environment
-            echo export MEMPORT=${MemcachePort} >> /etc/environment
-
-            # setting the type configuration for the nodes
-            echo export CONF_TYPE=${ConfigurationType} >> /etc/environment
-            echo export ENV=${Environment} >> /etc/environment
-
-            # setting the efs endpoint
-            echo export MOUNT_EFS=No >> /etc/environment
-
-            # grabbing the files from s3 to set everything
+            # grabbing the files from s3 to set jenkins trigger
             echo "configuration files"
-            sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /home/configuration
-            cd /home/configuration
-            sudo sh configuration.sh.template
+            sudo /usr/bin/aws s3 sync s3://${S3ConfigFiles}/${Environment}/configuration_files /tmp/configuration
+            cd /tmp/configuration
 
+            # executing jenkins job
+            # build parameters
+            echo BUILD_NUMBER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Builds/BuildNumber" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_USER=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/username" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_PASS=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/password" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo JENKINS_IP=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/jenkins/IpAddress" | jq ".Parameters" | jq ".[] .Value") >>  jenkins_params.py
+            echo JENKINS_JOB=$(/usr/bin/aws ssm get-parameters --region ${AWS::Region} --names "/${Environment}/${Identifier}/Jenkins/MetricsJob" | jq ".Parameters" | jq ".[] .Value") >> jenkins_params.py
+            echo ID_INSTANCE=\"$(curl  http://169.254.169.254/latest/meta-data/instance-id)\" >> jenkins_params.py
+            
+            echo "calling jenkins job"
+            sudo python3 jenkins_tringger.py.template
+            sudo rm -rf jenkins_params.py
       Tags:
       - Key: Name
         Value: !Sub ${Identifier}-${Environment}-metricsnode
@@ -225,6 +180,31 @@ Resources:
       - Key: Environment
         Value: !Ref Environment
 
+  RabbitHostParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+      Type: String
+      Value: !GetAtt MetricsInstance.PrivateIp
+      Description: !Sub rabbit host on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
+  
+  RabbitPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
+      Type: String
+      Value: !Ref RabbitMqPort
+      Description: !Sub rabbit port on Environment ${Environment}
+      Tags:
+        Name: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
+        OwnerName: !Ref OwnerName
+        ProjectName: !Ref ProjectName
+        Environment: !Ref  Environment
 Outputs:
 
   MetricsNodeIp:
@@ -234,3 +214,11 @@ Outputs:
   MetricsNodeInstanceId:
     Description: metrics node instace id
     Value: !Ref MetricsInstance
+
+  RabbitHostName:
+    Description: rabbit host name
+    Value: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitHost
+
+  RabbitPortName:
+    Description: rabbit port name
+    Value: !Sub /${Environment}/${Identifier}/RabbitMq/RabbitPort
