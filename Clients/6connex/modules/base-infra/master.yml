@@ -874,9 +874,9 @@ Resources:
         RtsDomain: !Ref RtsDomain
         RtsPriority: 1
         MetricDomain: !Ref MetricDomain
-        MetricsPriority: 3
+        MetricsPriority: 2
         TomcatDomain: !Ref TomcatDomain
-        TomcatPriority: 2
+        TomcatPriority: 3
         OwnerName: 6connex
         ProjectName: !Ref AWS::StackName
         Environment: !Ref Environment
