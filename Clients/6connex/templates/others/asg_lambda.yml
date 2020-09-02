@@ -1,0 +1,116 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  Lambda to name instances comming from an autoscaling group
+
+Parameters:
+
+  Identifier:
+    Type: String
+    Default: 6connex
+    Description: A name identifier for the resources
+
+  OwnerName:
+    Type: String
+    Default: 6connex
+    Description: An arbitrary tag name for the owner of these resources
+
+  ProjectName:
+    Type: String
+    Default: 6connex
+    Description: The name of the stack to which these resources belong
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name to append to resources names and tags
+
+Resources:
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${Identifier}-${ServerBaseName}-${Environment}-deregister-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - ec2:DescribeInstances
+              - opsworks:DescribeInstances
+              - opsworks:DeregisterInstance
+              Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Identifier}-${Environment}-naming-lambda
+        - Key: OwnerName
+          Value: !Ref OwnerName
+        - Key: StackName
+          Value: !Ref ProjectName
+
+  NamingLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Identifier}-${Environment}-naming-instance
+      Description: The function is responsible on naming instances created by asg
+      Handler: index.lambda_handler
+      Role: !GetAtt [LambdaRole, Arn]
+      Runtime: python3.6
+      Environment:
+        Variables:
+          IDENTIFIER: !Ref Identifier
+          ENVIRONMENT: !Ref Environment
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Sub ${Environment}/lambdas/naming_lambda/code.zip
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-naming-instance
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  ############### SNS ###############
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${Identifier}-${Environment}-sns-topic-naming
+      Subscription:
+      - Endpoint: !GetAtt LambdaFunction.Arn
+        Protocol: lambda
+      Tags:
+      - Key: Name
+        Value: !Sub ${Identifier}-${Environment}-sns-topic-naming
+      - Key: Owner
+        Value: !Ref OwnerName
+      - Key: ProjectName
+        Value: !Ref ProjectName
+      - Key: Environment
+        Value: !Ref Environment
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SnsTopic
+      FunctionName: !GetAtt NamingLambdaFunction.Arn
+
+Outputs:
+
+  NamingLambdaArn:
+    Description: lambda function ARN to associate with the asg
+    Value: !GetAtt NamingLambdaFunction.Arn

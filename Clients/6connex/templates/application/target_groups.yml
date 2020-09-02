@@ -113,16 +113,16 @@ Resources:
   TomcatTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${Identifier}-${Environment}-tomcat-targetgroup
+      Name: !Sub ${Identifier}-${Environment}-tomcat-targetgp
       Port: 443
       VpcId: !Ref VpcId
-      Protocol: HTTP
+      Protocol: HTTPS
       HealthCheckPath: /
-      HealthCheckPort: 8080
-      HealthCheckProtocol: HTTP
+      HealthCheckPort: 443
+      HealthCheckProtocol: HTTPS
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-tomcat-targetgroup
+        Value: !Sub ${Identifier}-${Environment}-tomcat-targetgp
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
@@ -150,18 +150,18 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: CreateMetrics
     Properties:
-      Name: !Sub ${Identifier}-${Environment}-metrics-targetgroup
-      Port: 8080
+      Name: !Sub ${Identifier}-${Environment}-metrics-targetgp
+      Port: 443
       VpcId: !Ref VpcId
-      Protocol: HTTP
+      Protocol: HTTPS
       HealthCheckPath: /version.xml
-      HealthCheckPort: 8080
+      HealthCheckPort: 443
       HealthCheckProtocol: HTTP
       Targets:
       - Id: !Ref MetricsNodeId
       Tags:
       - Key: Name
-        Value: !Sub ${Identifier}-${Environment}-metrics-targetgroup
+        Value: !Sub ${Identifier}-${Environment}-metrics-targetgp
       - Key: Owner
         Value: !Ref OwnerName
       - Key: ProjectName
