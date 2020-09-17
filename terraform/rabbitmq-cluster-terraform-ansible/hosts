@@ -1,0 +1,18 @@
+[node1]
+rabbit-node1 ansible_ssh_host=52.90.5.84
+
+[node2]
+rabbit-node2 ansible_ssh_host=3.86.249.219
+
+[workers]
+rabbit-node2
+
+[all_group]
+rabbit-node1
+rabbit-node2
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_user=ubuntu
+ansible_private_key_file=/home/praveen/Desktop/ssh/parveen-rabbitmq.pem
+ansible_ssh_extra_args='-o StrictHostKeyChecking=no'
