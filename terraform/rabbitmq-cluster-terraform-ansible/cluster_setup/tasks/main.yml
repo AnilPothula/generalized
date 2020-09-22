@@ -8,7 +8,7 @@
   become: true
 
 - name: joining rabbitmq node to cluster
-  command: rabbitmqctl join_cluster rabbit@rabbit-node1
+  command: rabbitmqctl join_cluster rabbit@master_node
   become: true
 
 - name: starting rabbitmq app

@@ -1,8 +1,8 @@
 ### security-groups.tf
 resource "aws_security_group" "rabbitsg" {
-  name = "sgrabbitmqcluster"
+  name = "sgrabbitcluster"
   tags = {
-        Name = "sg-rabbitmq-cluster"
+        Name = "sg-rabbitcluster"
   }
 # Allow all inbound
   ingress {
