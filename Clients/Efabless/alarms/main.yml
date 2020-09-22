@@ -1,0 +1,453 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Efab Alarms
+
+Parameters:
+  LoadBalancerFullName:
+    Description: LoadBalancerFullName
+    Type: String
+
+  ElasticsearchCluster:
+    Description: LoadBalancerFullName
+    Type: String
+
+  AutoScalingGroupName:
+    Description: LoadBalancerFullName
+    Type: String
+
+  InstanceId:
+    Description: EC2 Instance ID
+    Type: String
+
+  CacheCluster:
+    Description: Elasticache Cluster ID
+    Type: String
+
+  LambdaFunctionName:
+    Description: Lambda Function Name
+    Type: String
+
+  RDSName:
+    Description: Lambda Function Name
+    Type: String
+
+  Route53HealthCheck:
+    Description: Route53 HealthCheck Id
+    Type: String
+
+Resources:
+
+###################### Load Balancer #################################
+  LBLatency:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: LB latency is over 10 second(s) for 1 period(s) of 300 seconds
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref LoadBalancerAlarmTopic
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Unit: Seconds
+      Statistic: Average
+      EvaluationPeriods: 300
+      Period: 1
+      Threshold: 10
+      Dimensions:
+      - Name: LoadBalancer
+        Value: !Ref LoadBalancerFullName
+
+  LoadBalancerAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: LoadBalancer Alarm Topic
+
+  HTTPCodeELB5XXTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'Application load balancer returns 5XX HTTP status codes'
+      Namespace: 'AWS/ApplicationELB'
+      MetricName: HTTPCode_Target_5XX_Count
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 50
+      AlarmActions:
+      - Ref: LoadBalancerAlarmTopic
+      Dimensions:
+      - Name: LoadBalancer
+        Value: !Ref LoadBalancerFullName
+
+######################### ES Alarms ################################################
+  EsCPUUtilizationTooHighAlarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "es-cpu-utilization-too-high"
+      AlarmActions:
+      - !Ref ESAlarmsSnsTopic
+      AlarmDescription: "ES cluster CPU usage above 80%"
+      ComparisonOperator: "GreaterThanThreshold"
+      TreatMissingData: "missing"
+      Dimensions:
+      - Name: ClientId
+        Value: !Ref "AWS::AccountId"
+      - Name: DomainName
+        Value: !Ref ElasticsearchCluster
+      EvaluationPeriods: 1
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/ES"
+      Period: "300"
+      Statistic: "Average"
+      Threshold: "80"
+
+  ESAlarmsSnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: ES Alarm Topic
+
+############################## Auto Scaling Alarms #############################
+  AutoScalingCPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '10'
+      AlarmDescription: Alarm if CPU too high or metric disappears indicating instance
+        is down
+      Period: '60'
+      AlarmActions:
+      - !Ref AutoScalingAlarmsSnsTopic
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value:
+          Ref: AutoScalingGroupName
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  AutoScalingAlarmsSnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: AutoScaling Alarm Topic
+
+ ###################### Dynamo DB Alarms ###############################
+  DynamoDBAccountReadCapAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'DynamoDBAccountReadCapAlarm'
+      AlarmDescription: 'Alarm when account approaches maximum read capacity limit'
+      AlarmActions:
+        - !Ref DynamoDBMonitoringSNSTopic
+      Namespace: 'AWS/DynamoDB'
+      MetricName: 'AccountProvisionedReadCapacityUtilization'
+      Statistic: 'Maximum'
+      Unit: 'Percent'
+      Threshold: 80
+      ComparisonOperator: 'GreaterThanThreshold'
+      Period: 300
+      EvaluationPeriods: 1
+  DynamoDBAccountWriteCapAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'DynamoDBAccountWriteCapAlarm'
+      AlarmDescription: 'Alarm when account approaches maximum write capacity limit'
+      AlarmActions:
+        - !Ref DynamoDBMonitoringSNSTopic
+      Namespace: 'AWS/DynamoDB'
+      MetricName: 'AccountProvisionedWriteCapacityUtilization'
+      Statistic: 'Maximum'
+      Unit: 'Percent'
+      Threshold: 80
+      ComparisonOperator: 'GreaterThanThreshold'
+      Period: 300
+      EvaluationPeriods: 1
+  DynamoDBTableReadCapAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'DynamoDBTableReadCapAlarm'
+      AlarmDescription: 'Alarm when table capacity approaches maximum account read capacity limit'
+      AlarmActions:
+        - !Ref DynamoDBMonitoringSNSTopic
+      Namespace: 'AWS/DynamoDB'
+      MetricName: 'MaxProvisionedTableReadCapacityUtilization'
+      Statistic: 'Maximum'
+      Unit: 'Percent'
+      Threshold: 80
+      ComparisonOperator: 'GreaterThanThreshold'
+      Period: 300
+      EvaluationPeriods: 1
+  DynamoDBTableWriteCapAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'DynamoDBTableWriteCapAlarm'
+      AlarmDescription: 'Alarm when table capacity approaches maximum account write capacity limit'
+      AlarmActions:
+        - !Ref DynamoDBMonitoringSNSTopic
+      Namespace: 'AWS/DynamoDB'
+      MetricName: 'MaxProvisionedTableWriteCapacityUtilization'
+      Statistic: 'Maximum'
+      Unit: 'Percent'
+      Threshold: 80
+      ComparisonOperator: 'GreaterThanThreshold'
+      Period: 300
+      EvaluationPeriods: 1
+
+  DynamoDBMonitoringSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: DynamoDB Monitoring SNS Topic
+
+ ###################### EC2 Alarms ###############################
+
+  CPUAlarmWARNING: 
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${InstanceId} - High CPU Usage 90%"
+      AlarmActions:
+      - !Ref EC2SNSTopic
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: '900'
+      EvaluationPeriods: '1'
+      Threshold: '90'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref InstanceId
+
+  MemoryAlarmWARNING:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${InstanceId} - High Memory Usage 90%"
+      AlarmActions:
+      - !Ref EC2SNSTopic
+      MetricName: "mem_used_percent"
+      Namespace: CWAgent
+      Statistic: Average
+      Period: '900'
+      EvaluationPeriods: '1'
+      Threshold: '90'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref InstanceId 
+
+  EC2SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: EC2 SNS Topic
+
+######################## ElastiCache Alarm ####################################
+
+  ClusterCPUUtilizationTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmActions:
+      - !Ref ElastiCacheSNSTopic
+      AlarmDescription: 'Average CPU utilization over last 10 minutes too high.'
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: CacheClusterId
+        Value: !Ref CacheCluster
+      EvaluationPeriods: 1
+      MetricName: CPUUtilization
+      Namespace: 'AWS/ElastiCache'
+      Period: 600
+      Statistic: Average
+      Threshold: 80
+
+  ClusterSwapUsageTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmActions:
+      - !Ref ElastiCacheSNSTopic
+      AlarmDescription: 'Average swap usage over last 10 minutes too high, performance may suffer.'
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: CacheClusterId
+        Value: !Ref CacheCluster
+      EvaluationPeriods: 1
+      MetricName: SwapUsage
+      Namespace: 'AWS/ElastiCache'
+      Period: 600
+      Statistic: Average
+      Threshold: 256000000 # 256 Megabyte in Byte
+
+  ClusterEvictionsTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmActions:
+      - !Ref ElastiCacheSNSTopic
+      AlarmDescription: 'Evictions over last 10 minutes too high, memory may to less for all keys.'
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: CacheClusterId
+        Value: !Ref CacheCluster
+      EvaluationPeriods: 10
+      MetricName: Evictions
+      Namespace: 'AWS/ElastiCache'
+      Period: 60
+      Statistic: Sum
+      Threshold: 1000
+
+  ElastiCacheSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: ElastiCache SNS Topic
+
+########################## Lambda Alarm ##########################################
+
+  QueueDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Enters ALARM state because we have received a lamdba error."
+      Namespace: "AWS/Lambda"
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value : !Ref LambdaFunctionName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - Ref: LambdaAlarmTopic
+      InsufficientDataActions:
+        - Ref: LambdaAlarmTopic
+
+  LambdaAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Lambda SNS Topic
+
+########################## RDS Alarm ##########################################
+
+  DatabaseCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DB CPU utilization is over 90% for 1 period(s) of 300 seconds
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Unit: Percent
+      Statistic: Average
+      EvaluationPeriods: 1
+      Period: 300
+      Threshold: 90
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSName
+      AlarmActions:
+        - !Ref RDSAlarmTopic
+
+  DatabaseFreeStorageSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DB free storage space is less than 500MB for 1 period(s) of 300 seconds
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Unit: Bytes
+      Statistic: Average
+      EvaluationPeriods: 1
+      Period: 300
+      Threshold: 524288000
+      ComparisonOperator: LessThanOrEqualToThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSName
+      AlarmActions:
+        - !Ref RDSAlarmTopic
+
+  DatabaseSwapUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DB swap usage is greater than than 200 MB for 2 period(s) of 300 seconds
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: SwapUsage
+      Unit: Bytes
+      Statistic: Average
+      EvaluationPeriods: 2
+      Period: 300
+      Threshold: 209715200
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSName
+      AlarmActions:
+        - !Ref RDSAlarmTopic
+
+  DatabaseReadLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DB read latency is over 1 for 1 period(s) of 300 seconds
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: ReadLatency
+      Unit: Seconds
+      Statistic: Average
+      EvaluationPeriods: 1
+      Period: 300
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSName
+      AlarmActions:
+        - !Ref RDSAlarmTopic
+
+  DatabaseWriteLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DB write latency is over 10 sec for 2 period(s) of 300 seconds
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: WriteLatency
+      Unit: Seconds
+      Statistic: Average
+      EvaluationPeriods: 2
+      Period: 300
+      Threshold: 10
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSName
+      AlarmActions:
+        - !Ref RDSAlarmTopic
+
+  RDSAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: RDS Topic
+
+########################## Route53 Alarm ##########################################
+
+  Route53Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Route53 Health Check Alarm
+      Namespace: AWS/Route53
+      MetricName: HealthCheckStatus
+      Statistic: Minimum
+      EvaluationPeriods: 5
+      Period: 60
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: HealthCheckId
+          Value: !Ref Route53HealthCheck
+      AlarmActions:
+        - !Ref Route53AlarmTopic
+
+  Route53AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Route53 SNS Topic
