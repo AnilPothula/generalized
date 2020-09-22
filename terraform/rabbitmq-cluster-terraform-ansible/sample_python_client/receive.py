@@ -3,7 +3,7 @@ import pika, sys, os
 
 def main():
     credentials = pika.PlainCredentials('admin', 'qweqwe')
-    parameters = pika.ConnectionParameters(host='3.89.90.119',
+    parameters = pika.ConnectionParameters(host='3.82.45.61',
                                            port=5672,
                                            virtual_host='/',
                                            credentials=credentials,
@@ -11,7 +11,7 @@ def main():
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()
 
-    channel.queue_declare(queue='hello')
+    channel.queue_declare(queue='hello', durable=True)
 
     def callback(ch, method, properties, body):
         print(" [x] Received %r" % body)
