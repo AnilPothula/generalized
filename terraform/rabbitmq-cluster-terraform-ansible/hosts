@@ -1,18 +1,18 @@
-[node1]
-rabbit-node1 ansible_ssh_host=52.90.5.84
+[master_node]
+master_node ansible_ssh_host=54.165.82.80
 
-[node2]
-rabbit-node2 ansible_ssh_host=3.86.249.219
+[worker-node]
+worker-node1 ansible_ssh_host=35.168.18.131
 
 [workers]
-rabbit-node2
+worker-node1
 
 [all_group]
-rabbit-node1
-rabbit-node2
+master_node
+worker-node1
 
 [all:vars]
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_user=ubuntu
-ansible_private_key_file=/home/praveen/Desktop/ssh/parveen-rabbitmq.pem
+ansible_private_key_file=/Users/shariq/Desktop/aws/nclouds/shariq-rabbit-virg.pem
 ansible_ssh_extra_args='-o StrictHostKeyChecking=no'
