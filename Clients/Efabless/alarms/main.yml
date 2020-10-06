@@ -9,11 +9,11 @@ Parameters:
     Type: String
 
   ElasticsearchCluster:
-    Description: LoadBalancerFullName
+    Description: ElasticsearchCluster
     Type: String
 
   AutoScalingGroupName:
-    Description: LoadBalancerFullName
+    Description: AutoScalingGroupName
     Type: String
 
   InstanceId:
@@ -29,11 +29,11 @@ Parameters:
     Type: String
 
   RDSName:
-    Description: Lambda Function Name
+    Description: RDSName Name
     Type: String
 
-  Route53HealthCheck:
-    Description: Route53 HealthCheck Id
+  NotifyEmail:
+    Description: NotifyEmail
     Type: String
 
 Resources:
@@ -42,7 +42,7 @@ Resources:
   LBLatency:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: LB latency is over 10 second(s) for 1 period(s) of 300 seconds
+      AlarmDescription: LB latency is over 10 for 60 period(s) of 300 seconds
       TreatMissingData: notBreaching
       AlarmActions:
       - !Ref LoadBalancerAlarmTopic
@@ -52,7 +52,7 @@ Resources:
       Unit: Seconds
       Statistic: Average
       EvaluationPeriods: 300
-      Period: 1
+      Period: 60
       Threshold: 10
       Dimensions:
       - Name: LoadBalancer
@@ -62,6 +62,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: LoadBalancer Alarm Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
   HTTPCodeELB5XXTooHighAlarm:
     Type: 'AWS::CloudWatch::Alarm'
@@ -106,6 +109,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: ES Alarm Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
 ############################## Auto Scaling Alarms #############################
   AutoScalingCPUAlarmHigh:
@@ -131,6 +137,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: AutoScaling Alarm Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
  ###################### Dynamo DB Alarms ###############################
   DynamoDBAccountReadCapAlarm:
@@ -198,6 +207,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties: 
       DisplayName: DynamoDB Monitoring SNS Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
  ###################### EC2 Alarms ###############################
 
@@ -241,6 +253,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties: 
       DisplayName: EC2 SNS Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
 ######################## ElastiCache Alarm ####################################
 
@@ -299,6 +314,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties: 
       DisplayName: ElastiCache SNS Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
 ########################## Lambda Alarm ##########################################
 
@@ -325,6 +343,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties: 
       DisplayName: Lambda SNS Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
 
 ########################## RDS Alarm ##########################################
 
@@ -427,27 +448,6 @@ Resources:
     Type: AWS::SNS::Topic
     Properties: 
       DisplayName: RDS Topic
-
-########################## Route53 Alarm ##########################################
-
-  Route53Alarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Route53 Health Check Alarm
-      Namespace: AWS/Route53
-      MetricName: HealthCheckStatus
-      Statistic: Minimum
-      EvaluationPeriods: 5
-      Period: 60
-      Threshold: 1
-      ComparisonOperator: LessThanThreshold
-      Dimensions:
-        - Name: HealthCheckId
-          Value: !Ref Route53HealthCheck
-      AlarmActions:
-        - !Ref Route53AlarmTopic
-
-  Route53AlarmTopic:
-    Type: AWS::SNS::Topic
-    Properties: 
-      DisplayName: Route53 SNS Topic
+      Subscription:
+      - Endpoint: !Ref NotifyEmail
+        Protocol: email
