@@ -1,0 +1,133 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Efab Cloudwatch Dashboards
+
+Parameters:
+  Identifier:
+    Type: String
+    AllowedPattern: '[a-z0-9-]+'
+    ConstraintDescription: Malformed input parameter. Identifier must only contain
+      lower case letters, numbers, and -
+    MaxLength: 80
+    MinLength: 1
+    Description: Name of the application, used to identify resources
+  StackName:
+    Type: String
+    Description: The name of the stack to which these resources belong
+
+Resources:
+  CodePipeLineEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${StackName}-${Identifier}-codepipeline-metrics-rule
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - 'CodePipeline Pipeline Execution State Change'
+        detail:
+          state:
+            - SUCCEEDED
+            - STARTED
+            - FAILED
+            - CANCELED
+      Targets:
+      -
+        Arn: !GetAtt CodePipeLineEventLogGroup.Arn
+        Id: LogGroup
+
+  CodePipeLineEventLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/events/${StackName}-${Identifier}-codepipeline-metrics-logs
+      RetentionInDays: 150
+
+  Dashboard: 
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${StackName}-${Identifier}-dashboard
+      DashboardBody: 
+          Fn::Join: 
+          - "" 
+          - - '{"widgets":[{"type":"metric","x":3,"y":0,"width":21,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/EC2,InstanceId} MetricName=\"CPUUtilization\"'', ''Average'', 300)","label":"","id":"e1"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"CPU Utilization Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"text","x":0,"y":0,"width":3,"height":6,"properties":{"markdown":"\n# EC2\n"}},{"type":"text","x":0,"y":12,"width":24,"height":1,"properties":{"markdown":"\n# EFS\n"}},{"type":"metric","x":0,"y":13,"width":24,"height":3,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/EFS, FileSystemId} MetricName=\"PermittedThroughput\"'', ''Average'', 300)","label":"","id":"e1"}]],"view":"singleValue","region":"'
+            - Ref: AWS::Region
+            - '","period":300,"stat":"Average"}},{"type":"metric","x":0,"y":16,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/EFS, FileSystemId} MetricName=\"PercentIOLimit\"'', ''Average'', 300)","label":"","id":"e1"}]],"view":"timeSeries","region":"'
+            - Ref: AWS::Region
+            - '","title":"Percent IO Limit Average","period":300,"stacked":false,"legend":{"position":"right"},"stat":"Average"}},{"type":"metric","x":12,"y":16,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/EFS, FileSystemId} MetricName=\"ClientConnections\"'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Client Connections Sum","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"labels":{"visible":true},"liveData":true,"setPeriodToTimeRange":true,"singleValueFullPrecision":false,"stat":"Sum"}},{"type":"text","x":0,"y":22,"width":24,"height":1,"properties":{"markdown":"\n# Lambda\n"}},{"type":"metric","x":0,"y":23,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/Lambda,FunctionName} (\"Errors\")'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"view":"timeSeries","stacked":false,"region":"'
+            - Ref: AWS::Region
+            - '","legend":{"position":"right"},"stat":"Sum","period":300,"title":"Lambda Error Count","setPeriodToTimeRange":true}},{"type":"metric","x":12,"y":23,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/Lambda,FunctionName} (\"Invocations\")'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"view":"timeSeries","stacked":false,"region":"'
+            - Ref: AWS::Region
+            - '","stat":"Sum","period":300,"legend":{"position":"right"},"title":"Invocations"}},{"type":"text","x":0,"y":29,"width":24,"height":1,"properties":{"markdown":"\n# Load Balancer\n"}},{"type":"metric","x":12,"y":36,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/ApplicationELB,LoadBalancer} MetricName=\"HTTPCode_ELB_5XX_Count\"'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"view":"timeSeries","region":"'
+            - Ref: AWS::Region
+            - '","stacked":false,"title":"HTTP 5xx Responses","period":300,"legend":{"position":"right"},"stat":"Average"}},{"type":"metric","x":0,"y":42,"width":24,"height":9,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/ApplicationELB,LoadBalancer,TargetGroup} MetricName=\"UnHealthyHostCount\"'', ''Average'', 300)","label":"","id":"e1"}]],"view":"singleValue","region":"'
+            - Ref: AWS::Region
+            - '","period":300,"liveData":true,"singleValueFullPrecision":false,"stat":"Average"}},{"type":"metric","x":0,"y":57,"width":24,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS, DBInstanceIdentifier} MetricName=\"CPUUtilization\"'', ''Average'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"CPU Utilization Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":12,"y":63,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"FreeStorageSpace\"'', ''Average'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"view":"pie","stacked":false,"region":"'
+            - Ref: AWS::Region
+            - '","legend":{"position":"right"},"stat":"Average","period":300,"title":"Free Storage Space Average","liveData":true,"labels":{"visible":false}}},{"type":"metric","x":0,"y":63,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"SwapUsage\"'', ''Average'', 300)","label":"","id":"e1"}]],"view":"timeSeries","stacked":false,"region":"'
+            - Ref: AWS::Region
+            - '","legend":{"position":"right"},"title":"Swap Usage Average","period":300,"stat":"Average"}},{"type":"metric","x":12,"y":69,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"ReadLatency\"'', ''Average'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Read Latency Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":0,"y":69,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"WriteLatency\"'', ''Average'', 300)","label":"","id":"e1"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Write Latency Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":6,"y":51,"width":18,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"DatabaseConnections\"'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"view":"timeSeries","region":"'
+            - Ref: AWS::Region
+            - '","setPeriodToTimeRange":true,"liveData":false,"singleValueFullPrecision":false,"title":"Database connections","period":300,"stat":"Sum","stacked":false}},{"type":"text","x":0,"y":51,"width":6,"height":6,"properties":{"markdown":"\n# RDS\n"}},{"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/EC2,InstanceId} MetricName=\"NetworkIn\"'', ''Average'', 300)","label":"","id":"e1"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Network In Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":12,"y":6,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/EC2,InstanceId} MetricName=\"NetworkOut\"'', ''Average'', 300)","label":"","id":"e1"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Network Out Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":0,"y":30,"width":24,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/ApplicationELB, LoadBalancer} MetricName=\"RequestCount\"'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Request Count Sum","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":true,"period":300,"stat":"Sum"}},{"type":"metric","x":0,"y":36,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/ApplicationELB,LoadBalancer} MetricName=\"HTTPCode_ELB_4XX_Count\"'', ''Sum'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"HTTP 4XX Count","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":true,"period":300,"stat":"Sum"}},{"type":"metric","x":0,"y":75,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"ReadIOPS\"'', ''Average'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Read IOPS Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":12,"y":75,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"WriteIOPS\"'', ''Average'', 300)","label":"","id":"e1"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Write IOPS Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":0,"y":81,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"FreeableMemory\"'', ''Average'', 300)","label":"","id":"e1","region":"'
+            - Ref: AWS::Region
+            - '"}]],"region":"'
+            - Ref: AWS::Region
+            - '","title":"Freeable Memory Average","legend":{"position":"bottom"},"copilot":true,"view":"timeSeries","stacked":false,"period":300,"stat":"Average"}},{"type":"metric","x":12,"y":81,"width":12,"height":6,"properties":{"metrics":[[{"expression":"SEARCH(''{AWS\/RDS,DBInstanceIdentifier} MetricName=\"DiskQueueDepth\"'', ''Average'', 300)","label":"","id":"e1"}]],"view":"timeSeries","stacked":false,"region":"'
+            - Ref: AWS::Region
+            - '","legend":{"position":"right"},"setPeriodToTimeRange":true,"period":300,"stat":"Average"}},{"type":"text","x":0,"y":87,"width":24,"height":2,"properties":{"markdown":"\n# Code Pipeline\n"}},{"type": "log","x": 0,"y": 89,"width": 12,"height": 6, "properties": { "query": "SOURCE \"'
+            - Ref: CodePipeLineEventLogGroup
+            - '\" | stats count(*) by bin(10m)\n | filter detail.state =''STARTED''", "region": "'
+            - Ref: AWS::Region
+            - '", "stacked": false, "title": "Codepipeline Start Count Graph", "view": "bar" } }, { "type": "log", "x": 12, "y": 89, "width": 12, "height": 6, "properties": { "query": "SOURCE \"'
+            - Ref: CodePipeLineEventLogGroup
+            - '\" | stats count(*) by bin(1m)\n | filter detail.state =''SUCCEEDED''", "region": "'
+            - Ref: AWS::Region
+            - '", "stacked": false, "view": "bar", "title": "Codepipeline Succeeded Count Graph" } },{"type": "log","x": 0,"y": 95,"width": 24,"height": 6, "properties": { "query": "SOURCE \"'
+            - Ref: CodePipeLineEventLogGroup
+            - '\" | stats count(*) by bin(10m)\n | filter detail.state =''Failed''","region": "'
+            - Ref: AWS::Region
+            - '","stacked": false,"view": "bar","title": "Codepipeline Failed Count Graph"}}]}'
